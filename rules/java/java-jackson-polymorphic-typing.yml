@@ -1,0 +1,26 @@
+rules:
+  - id: java-jackson-polymorphic-typing
+    languages: [java]
+    severity: WARNING
+    message: >-
+      Jackson is set up to create whatever class the JSON names (default typing without a strict
+      validator, or `@JsonTypeInfo(use = Id.CLASS)`). With untrusted JSON this is a known path to
+      remote code execution through gadget classes on the classpath. Use `Id.NAME` with
+      `@JsonSubTypes` listing your own classes, or `activateDefaultTyping` with a
+      `BasicPolymorphicTypeValidator` that allows only your packages.
+    metadata:
+      title: Unsafe Jackson polymorphic typing
+      cwe: ["CWE-502: Deserialization of Untrusted Data"]
+      owasp: ["A08:2021 - Software and Data Integrity Failures"]
+      confidence: medium
+      severity: high
+    pattern-either:
+      - pattern: (ObjectMapper $M).enableDefaultTyping(...)
+      - pattern: (ObjectMapper $M).enableDefaultTypingAsProperty(...)
+      - pattern: (ObjectMapper $M).activateDefaultTyping(LaissezFaireSubTypeValidator.instance, ...)
+      - pattern: (ObjectMapper $M).activateDefaultTypingAsProperty(LaissezFaireSubTypeValidator.instance, ...)
+      - pattern: (JsonMapper.Builder $B).activateDefaultTyping(LaissezFaireSubTypeValidator.instance, ...)
+      - pattern: '@JsonTypeInfo(..., use = JsonTypeInfo.Id.CLASS, ...)'
+      - pattern: '@JsonTypeInfo(..., use = JsonTypeInfo.Id.MINIMAL_CLASS, ...)'
+      - pattern: '@JsonTypeInfo(..., use = Id.CLASS, ...)'
+      - pattern: '@JsonTypeInfo(..., use = Id.MINIMAL_CLASS, ...)'

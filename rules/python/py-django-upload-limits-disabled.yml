@@ -1,0 +1,20 @@
+rules:
+  - id: py-django-upload-limits-disabled
+    languages: [python]
+    severity: WARNING
+    message: >-
+      A Django request-size limit is switched off (set to `None`). Any client can then send a body,
+      form or upload of unlimited size or with unlimited fields, and exhaust the server's memory or
+      CPU with a few requests. Keep Django's defaults, or set a bigger finite value for the views
+      that need it.
+    metadata:
+      title: Django request size limit disabled
+      cwe: ["CWE-770: Allocation of Resources Without Limits or Throttling"]
+      owasp: ["A05:2021 - Security Misconfiguration"]
+      confidence: high
+      severity: medium
+    patterns:
+      - pattern: $SETTING = None
+      - metavariable-regex:
+          metavariable: $SETTING
+          regex: ^(DATA_UPLOAD_MAX_MEMORY_SIZE|DATA_UPLOAD_MAX_NUMBER_FIELDS|DATA_UPLOAD_MAX_NUMBER_FILES)$

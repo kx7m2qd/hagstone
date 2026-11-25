@@ -1,0 +1,39 @@
+rules:
+  - id: js-admin-route-without-role-check
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      An admin route only checks that the user is logged in, not that they are an admin. Any
+      registered user can call it. Add a role check (`requireRole("admin")` middleware, or
+      `if (!req.user.isAdmin) return res.sendStatus(403)`).
+    metadata:
+      title: Admin route without a role check
+      cwe: ["CWE-862: Missing Authorization"]
+      owasp: ["A01:2021 - Broken Access Control"]
+      confidence: medium
+      severity: high
+    match:
+      all:
+        - pattern: $APP.$VERB("$PATH", $MW, $H)
+        - not:
+            inside:
+              all:
+                - any:
+                    - pattern: |
+                        $A.use($RMW, ...);
+                        ...
+                    - pattern: |
+                        $A.use($PFX, ..., $RMW, ...);
+                        ...
+              where:
+                - metavariable: $RMW
+                  regex: (?i).*(admin|role|permi|authoriz|can\(|staff|superuser|acl|policy)
+      where:
+        - metavariable: $VERB
+          regex: ^(get|post|put|patch|delete|all)$
+        - metavariable: $PATH
+          regex: ^/(api/)?(v\d+/)?(admin|administration|internal|manage|management|debug|ops|superuser)(/|$)
+        - metavariable: $MW
+          regex: (?i)^(requireAuth|requireLogin|requireUser|isAuthenticated|isLoggedIn|ensureAuthenticated|ensureLoggedIn|authenticate|authenticated|auth|authMiddleware|verifyToken|verifyJwt|checkJwt|jwtAuth|protect|loginRequired|passport\.authenticate\(.*\)|auth\.required)$
+        - metavariable: $H
+          regex: (?i)^(?![\s\S]*(role|admin|permission|authoriz|staff|superuser|\bcan\())

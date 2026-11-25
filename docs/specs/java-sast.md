@@ -1,6 +1,9 @@
 # Java SAST (roadmap step 3, first language)
 
-Status: 11 rules built 2026-11-20. Gate: `npm run bench:owasp:java` (per category, CI) and the
+Status: 11 rules built 2026-11-20; 24 since 2026-11-25 (launch-goal batches: SSRF, unsafe
+deserialization, Jackson polymorphic typing, SpEL/script injection, regex injection, CSRF disabled,
+upload filename, stack traces, client-controlled authorization, world-writable files, IDOR, open
+admin/actuator paths, admin paths without a role). Gate: `npm run bench:owasp:java` (per category, CI) and the
 `bench/cases/spring-app` case in `npm run bench`.
 
 ## Rules (`rules/java/`)
@@ -18,6 +21,19 @@ Status: 11 rules built 2026-11-20. Gate: `npm run bench:owasp:java` (per categor
 | `java-weak-cipher` | 327 | DES/3DES/RC2/RC4/Blowfish, ECB, bare `"AES"` (not RSA/ECB) |
 | `java-weak-random` | 330 | `java.util.Random` / `Math.random` / `RandomStringUtils` → cookie, session, header, `set*Token` |
 | `java-insecure-cookie` | 614 | `setSecure(false)`, cookie added without `setSecure(true)`, `ResponseCookie.secure(false)` |
+| `java-ssrf` | 918 | request → RestTemplate, WebClient, `HttpClient`, `URL.openStream`, Apache/OkHttp, Jsoup |
+| `java-unsafe-deserialization` | 502 | request → `ObjectInputStream.readObject` (no `ObjectInputFilter`), `XMLDecoder` |
+| `java-jackson-polymorphic-typing` | 502 | `enableDefaultTyping`, `activateDefaultTyping` with a permissive validator, `@JsonTypeInfo(use = CLASS)` |
+| `java-code-injection` | 94/917 | request → SpEL (not `SimpleEvaluationContext`), `ScriptEngine.eval`, Groovy, MVEL, OGNL, JEXL |
+| `java-regex-injection` | 1333 | request → `Pattern.compile`, `String.matches` / `replaceAll` / `split` |
+| `java-csrf-disabled` | 352 | `csrf().disable()` / `csrf(AbstractHttpConfigurer::disable)` unless the chain is `STATELESS` |
+| `java-upload-client-filename` | 434 | `getOriginalFilename()` / `getSubmittedFileName()` → `File`, `Paths.get`, `resolve` (not in log calls) |
+| `java-stack-trace-exposure` | 209 | `printStackTrace(response.getWriter())`, stack-trace strings returned from handlers |
+| `java-client-controlled-authorization` | 863 | role-named param / header / cookie → `"admin".equals(x)`, `if (isAdmin)` (opts out of cross-file) |
+| `java-world-writable-permissions` | 732 | `"rwxrwxrwx"`-style permissions, `OTHERS_WRITE`, `setWritable(true, false)` |
+| `java-idor-unscoped-lookup` | 639 | `findById(@PathVariable id)` in a handler that takes the principal but never uses it |
+| `java-admin-route-without-auth` | 306 | `permitAll()` / `web.ignoring()` on admin, management or actuator paths; `anyRequest().permitAll()` |
+| `java-admin-route-without-role-check` | 862 | admin / management / actuator paths that are only `.authenticated()` |
 
 Shared: sources are servlet request getters (javax + jakarta) and Spring MVC / JAX-RS parameter
 annotations, matched at the parameter's declaration so dataflow (and guards) apply; numeric, boolean,
@@ -66,8 +82,21 @@ guard that rejects the value (`if (!allowed.contains(x)) throw …`, `if (!x.mat
 
 - spring-petclinic: 0 Java findings.
 - WebGoat: 21, all in vulnerable lessons; spot-checked three (WebWolf upload path, weak random secret,
-  audit-log SQL through a helper): all real. Not yet covered: XXE, deserialization, SSRF, open
-  redirect, SpEL/script injection, JWT, Spring Security misconfiguration.
+  audit-log SQL through a helper): all real. Not yet covered: XXE, open redirect, JWT, Spring
+  Security misconfiguration (SSRF, deserialization, SpEL/script injection added 2026-11-25).
+- 2026-11-25, batch-1 rules: WebGoat +2 (deserialization and SSRF lessons, both real), petclinic 0,
+  macrozheng/mall 1 (`activateDefaultTyping(LaissezFaireSubTypeValidator)` for Redis values: real
+  risk if Redis is writable). No false positives. Python: PyGoat SSRF lab found; NetBox 1
+  (`DATA_UPLOAD_MAX_NUMBER_FIELDS = None`, deliberate for bulk delete: accurate, team's call).
+- 2026-11-25, batches 2-3 (24 rules, all languages): WebGoat 8 (CSRF disabled ×2, `/actuator/**`
+  public, stack trace in lesson feedback, two uploads stored under the client filename), PyGoat 5
+  (cookie `admin == "1"`, open `/internal`, `@csrf_exempt` ×3), petclinic / mall / NetBox /
+  juice-shop / realworld 0. All accurate after fixing three false positives the check found:
+  `security.sanitizeFilename(...)` not seen as a sanitizer (juice-shop), a `File` built inside
+  `log.debug` (WebGoat), and a token-auth GraphQL view's `@csrf_exempt` (NetBox).
+- The cross-file pass took its return-summary sources from the first request rule by name; a narrow
+  new rule sorting first silently dropped two bench flows. It now takes the rule with the most
+  sources, and narrow rules opt out with `xfile: false`.
 
 ## Next
 

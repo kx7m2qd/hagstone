@@ -1,0 +1,57 @@
+rules:
+  - id: js-upload-client-filename
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      An uploaded file is stored under the name the client sent (`file.originalname` /
+      `req.files.x.name`). The client picks both the path (`../../app/views/x.ejs`) and the type
+      (`.html`, `.svg`, `.js`), so it can overwrite files or plant pages your server will serve.
+      Generate the stored name yourself (`crypto.randomUUID()`), keep the original only as metadata,
+      and allow only the extensions and MIME types you expect.
+    metadata:
+      title: Upload stored under client-supplied filename
+      cwe: ["CWE-434: Unrestricted Upload of File with Dangerous Type"]
+      owasp: ["A04:2021 - Insecure Design"]
+      confidence: high
+      severity: high
+    mode: taint
+    pattern-sources:
+      - pattern: $FILE.originalname
+      - pattern: $REQ.files.$FIELD.name
+      - patterns:
+          - pattern-inside: |
+              $F = $REQ.files.$FIELD;
+              ...
+          - pattern: $F.name
+    pattern-sanitizers:
+      - pattern: path.extname(...)
+      # Any filename sanitiser, plain or as a method (`security.sanitizeFilename(...)`).
+      - patterns:
+          - pattern-either:
+              - pattern: $FN(...)
+              - pattern: $OBJ.$FN(...)
+          - metavariable-regex:
+              metavariable: $FN
+              regex: (?i)^(basename|\w*sanitiz\w*|slugify|filenamify|secureFilename|safeFilename)$
+    pattern-sinks:
+      # multer diskStorage: the name passed to the callback.
+      - patterns:
+          - pattern-either:
+              - pattern-inside: 'multer.diskStorage({..., filename: function ($REQ, $F, $CB) {...}, ...})'
+              - pattern-inside: 'multer.diskStorage({..., filename: ($REQ, $F, $CB) => {...}, ...})'
+              - pattern-inside: 'multer.diskStorage({..., filename($REQ, $F, $CB) {...}, ...})'
+          - pattern: $CB(null, $NAME)
+          - focus-metavariable: $NAME
+      # express-fileupload and plain fs writes.
+      - patterns:
+          - pattern-either:
+              - pattern: $F.mv($PATH, ...)
+              - pattern: fs.writeFile($PATH, ...)
+              - pattern: fs.writeFileSync($PATH, ...)
+              - pattern: fs.createWriteStream($PATH, ...)
+              - pattern: fs.promises.writeFile($PATH, ...)
+              - pattern: fs.rename($OLD, $PATH, ...)
+              - pattern: fs.renameSync($OLD, $PATH)
+              - pattern: fs.copyFile($OLD, $PATH, ...)
+              - pattern: fs.copyFileSync($OLD, $PATH, ...)
+          - focus-metavariable: $PATH

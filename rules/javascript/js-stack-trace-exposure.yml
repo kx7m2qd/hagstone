@@ -1,0 +1,27 @@
+rules:
+  - id: js-stack-trace-exposure
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      An error's stack trace is sent to the client. It reveals file paths, library versions and
+      code structure that help an attacker plan the next step, and sometimes data from the failed
+      operation. Log the stack on the server and send a generic message with an error id.
+    metadata:
+      title: Stack trace sent to the client
+      cwe: ["CWE-209: Generation of Error Message Containing Sensitive Information", "CWE-200: Exposure of Sensitive Information to an Unauthorized Actor"]
+      owasp: ["A04:2021 - Insecure Design"]
+      confidence: high
+      severity: low
+    pattern-either:
+      - patterns:
+          - pattern-either:
+              - pattern: $RES.$SEND(<... $E.stack ...>, ...)
+              - pattern: $RES.status($CODE).$SEND(<... $E.stack ...>, ...)
+          - metavariable-regex:
+              metavariable: $SEND
+              regex: ^(send|json|jsonp|write|end|render)$
+          - metavariable-regex:
+              metavariable: $RES
+              regex: ^(res|resp|response|reply)$
+      # Koa
+      - pattern: ctx.body = <... $E.stack ...>

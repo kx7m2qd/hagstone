@@ -1,0 +1,39 @@
+rules:
+  - id: py-csrf-disabled
+    languages: [python]
+    severity: WARNING
+    message: >-
+      CSRF protection is turned off (Django `csrf_exempt`, Flask-WTF `csrf.exempt` or
+      `WTF_CSRF_ENABLED = False`). Any website a logged-in user visits can then make their browser
+      send this request with their session cookie. Keep CSRF on for anything a browser session can
+      reach. A webhook may be exempt if it verifies the sender's signature (HMAC) before acting.
+    metadata:
+      title: CSRF protection disabled
+      cwe: ["CWE-352: Cross-Site Request Forgery (CSRF)"]
+      owasp: ["A01:2021 - Broken Access Control"]
+      confidence: medium
+      severity: medium
+    pattern-either:
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  @csrf_exempt
+                  def $F(...):
+                    ...
+              - pattern: |
+                  @django.views.decorators.csrf.csrf_exempt
+                  def $F(...):
+                    ...
+              - pattern: |
+                  @$CSRF.exempt
+                  def $F(...):
+                    ...
+              - pattern: |
+                  @method_decorator(csrf_exempt, ...)
+                  class $C(...):
+                    ...
+          # Webhooks that check the sender's signature don't need CSRF.
+          - pattern-not-regex: (?i)(hmac|signature|construct_event|verify_webhook|webhook_secret|TokenAuthentication)
+      - pattern: csrf_exempt($VIEW)
+      - pattern: $APP.config["WTF_CSRF_ENABLED"] = False
+      - pattern: WTF_CSRF_ENABLED = False

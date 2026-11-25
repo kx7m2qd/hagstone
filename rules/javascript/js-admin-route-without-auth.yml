@@ -1,0 +1,43 @@
+rules:
+  - id: js-admin-route-without-auth
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      An admin or internal route has no authentication: no middleware on the route and none
+      registered with `app.use(...)` before it. Anyone who finds the URL can use it. Add your
+      authentication middleware to the route (or to the router that serves it) and an admin role
+      check.
+    metadata:
+      title: Admin route without authentication
+      cwe: ["CWE-306: Missing Authentication for Critical Function"]
+      owasp: ["A07:2021 - Identification and Authentication Failures"]
+      confidence: medium
+      severity: high
+    match:
+      all:
+        - pattern: $APP.$VERB("$PATH", $H)
+        # Only the app itself: a Router is usually mounted elsewhere, often behind auth we can't see.
+        - inside:
+            pattern: |
+              $APP = express();
+              ...
+        - not:
+            inside:
+              all:
+                - any:
+                    - pattern: |
+                        $A.use($MW, ...);
+                        ...
+                    - pattern: |
+                        $A.use($PFX, $MW, ...);
+                        ...
+              where:
+                - metavariable: $MW
+                  regex: (?i).*(auth|login|jwt|passport\.authenticate|protect|guard|verify|admin|role|ensure)
+      where:
+        - metavariable: $VERB
+          regex: ^(get|post|put|patch|delete|all)$
+        - metavariable: $PATH
+          regex: ^/(api/)?(v\d+/)?(admin|administration|internal|manage|management|debug|ops|superuser)(/|$)
+        - metavariable: $H
+          regex: ^(?![\s\S]*(\.(user|session|auth)\b|isAuthenticated|currentUser|verify))

@@ -1,0 +1,45 @@
+rules:
+  - id: py-stack-trace-exposure
+    languages: [python]
+    severity: WARNING
+    message: >-
+      A stack trace (`traceback.format_exc()` and friends) is sent in the HTTP response. It reveals
+      file paths, library versions and code structure that help an attacker plan the next step, and
+      sometimes data from the failed operation. Log it with `logger.exception(...)` and return a
+      generic message with an error id.
+    metadata:
+      title: Stack trace sent to the client
+      cwe: ["CWE-209: Generation of Error Message Containing Sensitive Information", "CWE-200: Exposure of Sensitive Information to an Unauthorized Actor"]
+      owasp: ["A04:2021 - Insecure Design"]
+      confidence: high
+      severity: low
+    mode: taint
+    pattern-sources:
+      - pattern: traceback.format_exc(...)
+      - pattern: traceback.format_exception(...)
+      - pattern: traceback.format_tb(...)
+      - pattern: traceback.format_stack(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: flask.jsonify(...)
+              - pattern: flask.make_response(...)
+              - pattern: flask.Response(...)
+              - pattern: django.http.HttpResponse(...)
+              - pattern: django.http.HttpResponseServerError(...)
+              - pattern: django.http.HttpResponseBadRequest(...)
+              - pattern: django.http.JsonResponse(...)
+              - pattern: rest_framework.response.Response(...)
+      # The return value of a Flask route.
+      - patterns:
+          - pattern-inside: |
+              @$APP.$ROUTE(...)
+              def $F(...):
+                ...
+          - metavariable-regex:
+              metavariable: $ROUTE
+              regex: ^(route|get|post|put|patch|delete|errorhandler)$
+          - pattern-either:
+              - pattern: return $X
+              - pattern: return $X, $CODE
+          - focus-metavariable: $X

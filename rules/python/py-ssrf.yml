@@ -1,0 +1,106 @@
+rules:
+  - id: py-ssrf
+    languages: [python]
+    severity: ERROR
+    message: >-
+      The server makes an HTTP request to a URL taken from the request (SSRF). An attacker can make
+      your server call internal services or the cloud metadata endpoint (169.254.169.254) and read
+      credentials. Keep the scheme and host fixed in code and put only the path or query from input,
+      or check the parsed host against an allowlist (and block private IP ranges) before the request.
+    metadata:
+      title: Server-side request forgery (SSRF)
+      cwe: ["CWE-918: Server-Side Request Forgery (SSRF)"]
+      owasp: ["A10:2021 - Server-Side Request Forgery (SSRF)"]
+      confidence: high
+      severity: high
+    mode: taint
+    pattern-sources:
+      - pattern: flask.request.$ATTR
+      - pattern: flask.request.$METHOD(...)
+      - patterns:
+          - pattern-inside: |
+              def $VIEW($REQ, ...):
+                ...
+          - pattern-either:
+              - pattern: $REQ.GET
+              - pattern: $REQ.POST
+    pattern-sanitizers:
+      - pattern: int(...)
+      # A literal scheme and host in front pins the destination; only the path is from input.
+      - patterns:
+          - pattern-either:
+              - pattern: '"$PREFIX" + $X'
+              - pattern: '"$PREFIX" % $X'
+              - pattern: '"$PREFIX".format(...)'
+          - metavariable-regex:
+              metavariable: $PREFIX
+              regex: ^https?://[^/{}%]+/
+      - patterns:
+          - pattern: $FSTR
+          - metavariable-regex:
+              metavariable: $FSTR
+              regex: ^f["']https?://[^/{"']+/
+      # Rejected unless its host is on an allowlist: clean from there on.
+      - by-side-effect: true
+        patterns:
+          - pattern-either:
+              - pattern-inside: |
+                  if urlparse($X).$HOST not in $ALLOWED:
+                    ...
+              - pattern-inside: |
+                  if urllib.parse.urlparse($X).$HOST not in $ALLOWED:
+                    ...
+              - patterns:
+                  - pattern-inside: |
+                      if not $CHECK($X):
+                        ...
+                  - metavariable-regex:
+                      metavariable: $CHECK
+                      regex: (?i).*(allow|safe|valid|trust|permit|whitelist)
+          - pattern: $X
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: requests.$M($URL, ...)
+              - pattern: httpx.$M($URL, ...)
+              - pattern: requests.Session().$M($URL, ...)
+              - patterns:
+                  - pattern-either:
+                      - pattern-inside: |
+                          $S = $CLIENT(...)
+                          ...
+                      - pattern-inside: |
+                          with $CLIENT(...) as $S:
+                            ...
+                      - pattern-inside: |
+                          async with $CLIENT(...) as $S:
+                            ...
+                  - metavariable-regex:
+                      metavariable: $CLIENT
+                      regex: ^((requests\.)?Session|(httpx\.)?(Async)?Client|(aiohttp\.)?ClientSession)$
+                  - pattern: $S.$M($URL, ...)
+          # `request(...)` takes the method first; it is in the next block.
+          - metavariable-regex:
+              metavariable: $M
+              regex: ^(get|post|put|patch|delete|head|options|stream)$
+          - focus-metavariable: $URL
+      - patterns:
+          - pattern-either:
+              - pattern: urllib.request.urlopen($URL, ...)
+              - pattern: urllib.request.Request($URL, ...)
+              - pattern: requests.request($METHOD, $URL, ...)
+              - pattern: httpx.request($METHOD, $URL, ...)
+              - pattern: urllib3.PoolManager().request($METHOD, $URL, ...)
+              - patterns:
+                  - pattern-either:
+                      - pattern-inside: |
+                          $S = $CLIENT(...)
+                          ...
+                      - pattern-inside: |
+                          with $CLIENT(...) as $S:
+                            ...
+                  - metavariable-regex:
+                      metavariable: $CLIENT
+                      regex: ^((requests\.)?Session|(httpx\.)?(Async)?Client|(urllib3\.)?PoolManager)$
+                  - pattern: $S.request($METHOD, $URL, ...)
+          - focus-metavariable: $URL

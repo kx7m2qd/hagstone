@@ -1,0 +1,62 @@
+rules:
+  - id: py-idor-unscoped-lookup
+    languages: [python]
+    severity: WARNING
+    message: >-
+      A record is loaded by the id in the URL in a login-required view, but the view never looks at
+      who is logged in (`request.user` / `current_user`). Any user can change the id and read or
+      change someone else's record (IDOR). Scope the query to the owner
+      (`get_object_or_404(Order, pk=pk, owner=request.user)`) or check ownership before using it.
+    metadata:
+      title: Record loaded by URL id without an ownership check
+      cwe: ["CWE-639: Authorization Bypass Through User-Controlled Key"]
+      owasp: ["A01:2021 - Broken Access Control"]
+      confidence: medium
+      severity: high
+    pattern-either:
+      # Django
+      - patterns:
+          - pattern-inside: |
+              @$LOGIN
+              def $V($REQ, ..., $ID, ...):
+                ...
+          - metavariable-regex:
+              metavariable: $LOGIN
+              regex: ^(login_required|permission_required\(.*\))$
+          - pattern-either:
+              - pattern: $M.objects.get(..., $K=$ID, ...)
+              - pattern: $M.objects.filter(..., $K=$ID, ...)
+              - pattern: get_object_or_404($M, ..., $K=$ID, ...)
+          - metavariable-regex:
+              metavariable: $K
+              regex: ^(pk|id|uuid|\w+_id)$
+          - pattern-not-inside: |
+              def $V2($REQ, ...):
+                ...
+                <... $REQ.user ...>
+                ...
+      # Flask
+      - patterns:
+          - pattern-inside: |
+              @$LOGIN
+              def $V(..., $ID, ...):
+                ...
+          - metavariable-regex:
+              metavariable: $LOGIN
+              regex: ^(login_required|flask_login\.login_required|jwt_required\(.*\))$
+          - pattern-either:
+              - pattern: $M.query.get($ID)
+              - pattern: $M.query.get_or_404($ID, ...)
+              - pattern: $M.query.filter_by(..., $K=$ID, ...)
+              - pattern: $DB.session.get($M, $ID)
+              - pattern: $DB.get_or_404($M, $ID, ...)
+          - pattern-not-inside: |
+              def $V2(...):
+                ...
+                <... current_user ...>
+                ...
+          - pattern-not-inside: |
+              def $V2(...):
+                ...
+                <... get_jwt_identity() ...>
+                ...

@@ -1,0 +1,111 @@
+rules:
+  - id: java-ssrf
+    languages: [java]
+    severity: ERROR
+    message: >-
+      The server makes an HTTP request to a URL taken from the request (SSRF). An attacker can make
+      your server call internal services or the cloud metadata endpoint (169.254.169.254) and read
+      credentials. Keep the scheme and host fixed in code and put only the path or query from input,
+      or check the parsed host against an allowlist (and block private IP ranges) before the request.
+    metadata:
+      title: Server-side request forgery (SSRF)
+      cwe: ["CWE-918: Server-Side Request Forgery (SSRF)"]
+      owasp: ["A10:2021 - Server-Side Request Forgery (SSRF)"]
+      confidence: high
+      severity: high
+    mode: taint
+    pattern-sources:
+      # Servlet request data (javax and jakarta).
+      - patterns:
+          - pattern-either:
+              - pattern: (javax.servlet.http.HttpServletRequest $REQ).$GET(...)
+              - pattern: (jakarta.servlet.http.HttpServletRequest $REQ).$GET(...)
+              - pattern: (javax.servlet.ServletRequest $REQ).$GET(...)
+              - pattern: (jakarta.servlet.ServletRequest $REQ).$GET(...)
+          - metavariable-regex:
+              metavariable: $GET
+              regex: ^(getParameter|getParameterValues|getParameterMap|getParameterNames|getHeader|getHeaders|getHeaderNames|getQueryString|getCookies|getInputStream|getReader|getPathInfo|getPart|getParts)$
+      # Spring MVC / JAX-RS handler parameters bound from the request (numbers, booleans and UUIDs can't carry an injection).
+      # The parameter itself (its declaration), so dataflow carries it and a guard can clean it.
+      - patterns:
+          - pattern-either:
+              - pattern: $RET $M(..., @$ANN $T $P, ...) { ... }
+              - pattern: $RET $M(..., @$ANN(...) $T $P, ...) { ... }
+          - metavariable-regex:
+              metavariable: $ANN
+              regex: ^(RequestParam|PathVariable|RequestHeader|CookieValue|RequestBody|ModelAttribute|MatrixVariable|RequestPart|QueryParam|PathParam|FormParam|HeaderParam|CookieParam|MatrixParam)$
+          - metavariable-regex:
+              metavariable: $T
+              regex: ^(?!(int|long|short|byte|double|float|boolean|char|Integer|Long|Short|Byte|Double|Float|Boolean|Character|BigInteger|BigDecimal|UUID|LocalDate|LocalDateTime|Instant)$)
+          - focus-metavariable: $P
+    pattern-propagators:
+      - pattern: (StringBuilder $SB).append($X)
+        from: $X
+        to: $SB
+      - pattern: (StringBuffer $SB).append($X)
+        from: $X
+        to: $SB
+    pattern-sanitizers:
+      # A literal scheme and host in front pins the destination; only the path is from input.
+      - patterns:
+          - pattern-either:
+              - pattern: '"$PREFIX" + $X'
+              - pattern: String.format("$PREFIX", ...)
+          - metavariable-regex:
+              metavariable: $PREFIX
+              regex: ^https?://[^/%]+/
+      - pattern-either:
+          - pattern: Integer.parseInt(...)
+          - pattern: Integer.valueOf(...)
+          - pattern: Long.parseLong(...)
+          - pattern: Long.valueOf(...)
+          - pattern: Double.parseDouble(...)
+          - pattern: Boolean.parseBoolean(...)
+          - pattern: java.util.UUID.fromString(...)
+      # Rejected unless it is in an allowlist or matches a pattern: clean from there on.
+      - by-side-effect: true
+        patterns:
+          - pattern-either:
+              - pattern-inside: if (!$C.contains($X)) { ... }
+              - pattern-inside: if (!$C.contains($X)) $S;
+              - pattern-inside: if (!$X.matches($RE)) { ... }
+              - pattern-inside: if (!$X.matches($RE)) $S;
+          - pattern: $X
+    pattern-sinks:
+      # Spring RestTemplate: the URL is the first argument.
+      - patterns:
+          - pattern: (RestTemplate $T).$M($URL, ...)
+          - metavariable-regex:
+              metavariable: $M
+              regex: ^(getForObject|getForEntity|postForObject|postForEntity|postForLocation|exchange|put|delete|patchForObject|headForHeaders|optionsForAllow|execute)$
+          - focus-metavariable: $URL
+      # Spring WebClient / RestClient, JDK HttpClient, Apache HttpClient, OkHttp, Jsoup.
+      - patterns:
+          - pattern-either:
+              - pattern: (WebClient $W).$M().uri($URL, ...)
+              - pattern: (RestClient $W).$M().uri($URL, ...)
+              - pattern: WebClient.create($URL)
+              - pattern: (WebClient.Builder $B).baseUrl($URL)
+              - pattern: HttpRequest.newBuilder($URL)
+              - pattern: (HttpRequest.Builder $B).uri($URL)
+              - pattern: new HttpGet($URL)
+              - pattern: new HttpPost($URL)
+              - pattern: new HttpPut($URL)
+              - pattern: new HttpDelete($URL)
+              - pattern: new HttpPatch($URL)
+              - pattern: new HttpHead($URL)
+              - pattern: new Request.Builder().url($URL)
+              - pattern: (Request.Builder $B).url($URL)
+              - pattern: Jsoup.connect($URL)
+          - focus-metavariable: $URL
+      # java.net.URL: opening a connection to it.
+      - patterns:
+          - pattern-either:
+              - pattern: new URL($URL).$OPEN(...)
+              - pattern: new java.net.URL($URL).$OPEN(...)
+              - pattern: (URL $URL).$OPEN(...)
+              - pattern: (java.net.URL $URL).$OPEN(...)
+          - metavariable-regex:
+              metavariable: $OPEN
+              regex: ^(openConnection|openStream|getContent)$
+          - focus-metavariable: $URL

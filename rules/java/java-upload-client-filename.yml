@@ -1,0 +1,65 @@
+rules:
+  - id: java-upload-client-filename
+    languages: [java]
+    severity: ERROR
+    message: >-
+      An uploaded file is stored under the name the client sent (`getOriginalFilename()` /
+      `getSubmittedFileName()`). The client picks both the path (`../../webapps/ROOT/x.jsp`) and the
+      type (`.jsp`, `.html`, `.svg`), so it can overwrite files or plant pages your server will
+      serve. Generate the stored name yourself (`UUID.randomUUID()`), keep the original only as
+      metadata, and allow only the extensions you expect. (`StringUtils.cleanPath` does not remove
+      `..`.)
+    metadata:
+      title: Upload stored under client-supplied filename
+      cwe: ["CWE-434: Unrestricted Upload of File with Dangerous Type"]
+      owasp: ["A04:2021 - Insecure Design"]
+      confidence: high
+      severity: high
+    mode: taint
+    pattern-sources:
+      - pattern: (MultipartFile $F).getOriginalFilename()
+      - pattern: (org.springframework.web.multipart.MultipartFile $F).getOriginalFilename()
+      - pattern: (Part $P).getSubmittedFileName()
+      - pattern: (javax.servlet.http.Part $P).getSubmittedFileName()
+      - pattern: (jakarta.servlet.http.Part $P).getSubmittedFileName()
+      - pattern: (FileItem $I).getName()
+    pattern-sanitizers:
+      - pattern: FilenameUtils.getName(...)
+      - pattern: FilenameUtils.getExtension(...)
+      - pattern: StringUtils.getFilenameExtension(...)
+      - pattern: Paths.get(...).getFileName()
+      - pattern: Path.of(...).getFileName()
+      - pattern: new File(...).getName()
+      - pattern: UUID.randomUUID()
+      # An archive's entry names are not the upload's filename (zip slip is java-path-traversal's).
+      - pattern: new ZipFile(...)
+      - pattern: new ZipInputStream(...)
+      - pattern: new JarFile(...)
+      - pattern: new JarInputStream(...)
+      # Rejected unless it matches a pattern or is in an allowlist.
+      - by-side-effect: true
+        patterns:
+          - pattern-either:
+              - pattern-inside: if (!$X.matches($RE)) { ... }
+              - pattern-inside: if (!$X.matches($RE)) $S;
+              - pattern-inside: if (!$C.contains($X)) { ... }
+              - pattern-inside: if (!$C.contains($X)) $S;
+          - pattern: $X
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: new File($DIR, $NAME)
+              - pattern: new java.io.File($DIR, $NAME)
+              - pattern: new File($NAME)
+              - pattern: new FileOutputStream($NAME, ...)
+              - pattern: Paths.get(..., $NAME, ...)
+              - pattern: Path.of(..., $NAME, ...)
+              # Untyped too: `var dir = ...toPath()` hides the type.
+              - pattern: $P.resolve($NAME)
+          - focus-metavariable: $NAME
+          # A File built only to log its name stores nothing.
+          - pattern-not-inside: $LOG.trace(...)
+          - pattern-not-inside: $LOG.debug(...)
+          - pattern-not-inside: $LOG.info(...)
+          - pattern-not-inside: $LOG.warn(...)
+          - pattern-not-inside: $LOG.error(...)

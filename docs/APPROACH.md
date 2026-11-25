@@ -69,8 +69,8 @@ the Korean guideline) moves later.
 
 | Capability | Status | Engine (license to verify before wrapping) |
 |---|---|---|
-| SAST: JavaScript/TypeScript, Python | ✅ 40 rules, taint-aware | Opengrep + our rules |
-| SAST: Java | 🟡 11 rules (OWASP Benchmark for Java categories), same-file and cross-file taint | Opengrep + our rules + method summaries |
+| SAST: JavaScript/TypeScript, Python | ✅ 59 rules (31 JS/TS, 28 Python), taint-aware | Opengrep + our rules |
+| SAST: Java | ✅ 24 rules (OWASP Benchmark for Java categories plus the CWE Top 25 launch set), same-file and cross-file taint | Opengrep + our rules + method summaries |
 | SAST: Go, C#, PHP, Kotlin, Ruby | ❌ | Opengrep + our rules |
 | SAST: C/C++ | ❌ (last: memory bugs need different analysis) | TBD |
 | Dependency vulnerabilities (SCA) + reachability | ✅ | OSV-Scanner |
@@ -206,12 +206,22 @@ network + Grype's DB). Each: pinned + verified, normalized into
 **Step 3 — SAST depth.** Java started 2026-11-20 (spec `docs/specs/java-sast.md`): 11 rules covering
 the OWASP Benchmark for Java's categories, average score 0.72 with a per-category gate; Spring app
 bench case. Cross-file taint added 2026-11-25 (method summaries on top of Opengrep): average 0.77, 0
-injection misses. Next: rules for XXE, deserialization, SSRF, open redirect, SpEL, JWT, Spring Security.
+injection misses. 2026-11-25, launch-goal batch 1: SSRF (Python, Java), Java deserialization + Jackson
+typing, Java SpEL/script injection, ReDoS (Python, Java), Django upload limits; coverage 21 → 27/51.
+Batches 2-3 the same day: CSRF, upload filename, stack-trace exposure, client-controlled
+authorization, world-writable permissions, IDOR, admin routes without authentication or a role
+check, in all three languages; coverage 51/51 (rules, tests, bench cases, real-project check).
 - Languages, in order: **Java** (Spring, eGovFrame; gate on the OWASP Benchmark for Java), **Go**,
   then C#, PHP, Kotlin, Ruby; **C/C++** last (memory bugs need a different kind of analysis).
   Each language gets real-CVE-fix benchmark cases like `bench:cves`.
-- Rule coverage target per language and main frameworks: every OWASP Top 10 and CWE Top 25 category,
-  proven by the benchmark (not a rule count).
+- **Launch goal (set 2026-11-25): we go live when it is met.** Every 2025 CWE Top 25 weakness that
+  applies to memory-safe languages (17: the list minus 7 memory-safety entries and the CWE-20
+  umbrella) is covered in each launch language: **JavaScript/TypeScript, Python, Java** (51 slots).
+  "Covered" means a rule with `ruleid:`/`ok:` tests, a bench case, a real-project check, and precision
+  >= 0.95 on the bench. Access-control weaknesses (862, 863, 284, 639, 306) count as covered when the
+  common framework mistakes are caught (unprotected routes, `permitAll`, lookups by a request id with
+  no ownership check). Measured by `npm run coverage:cwe`; 2026-11-25: 21/51, after batch 1: 27/51, after batches 2-3: **51/51**. Estimated 40-60 new
+  rules (~100-110 total). Go, PHP and others come after launch.
 - Cross-file taint: Java has our own summary layer (`java-xfile.ts`); reuse that design for the next
   languages before reaching for a deeper engine.
 - Rule metadata gains local guideline mappings (Indian frameworks first; see the market decision) alongside

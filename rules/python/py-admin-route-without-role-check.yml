@@ -1,0 +1,44 @@
+rules:
+  - id: py-admin-route-without-role-check
+    languages: [python]
+    severity: WARNING
+    message: >-
+      An admin endpoint only checks that the user is logged in (`@login_required` /
+      `IsAuthenticated`), not that they are an admin. Any registered user can call it. Add a role
+      check (`if not current_user.is_admin: abort(403)`, `@roles_required("admin")`,
+      `@staff_member_required`, or DRF `IsAdminUser`).
+    metadata:
+      title: Admin endpoint without a role check
+      cwe: ["CWE-862: Missing Authorization"]
+      owasp: ["A01:2021 - Broken Access Control"]
+      confidence: medium
+      severity: high
+    pattern-either:
+      - patterns:
+          - pattern: |
+              @$APP.$ROUTE("$PATH", ...)
+              @$LOGIN
+              def $F(...):
+                ...
+          - metavariable-regex:
+              metavariable: $ROUTE
+              regex: ^(route|get|post|put|patch|delete)$
+          - metavariable-regex:
+              metavariable: $PATH
+              regex: ^/(api/)?(v\d+/)?(admin|administration|internal|manage|management|debug|ops|superuser)(/|$)
+          - metavariable-regex:
+              metavariable: $LOGIN
+              regex: ^(login_required|flask_login\.login_required|jwt_required\(.*\)|auth_required\(.*\)|auth\.login_required)$
+          - pattern-not-regex: (?i)(is_admin|is_staff|is_superuser|has_role|roles?_(required|accepted)|admin_required|permission|\brole\b|\.role\s*[!=]=|abort\(403\))
+      - patterns:
+          - pattern-inside: |
+              class $C(...):
+                ...
+          - metavariable-regex:
+              metavariable: $C
+              regex: ^\w*Admin\w*$
+          - pattern-either:
+              - pattern: permission_classes = [IsAuthenticated]
+              - pattern: permission_classes = (IsAuthenticated,)
+              - pattern: permission_classes = [permissions.IsAuthenticated]
+              - pattern: permission_classes = (permissions.IsAuthenticated,)

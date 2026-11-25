@@ -1,0 +1,68 @@
+rules:
+  - id: py-client-controlled-authorization
+    languages: [python]
+    severity: ERROR
+    message: >-
+      An access decision is made from a value the client sends (a `role` / `is_admin` query
+      parameter, form field, header or cookie). Anyone can send `role=admin` and get admin access.
+      Authorization must come from server-side state: the role stored for the logged-in user
+      (session, database, verified token claims), never from a parameter, header or cookie the
+      client can set to anything.
+    metadata:
+      title: Authorization based on client-controlled data
+      cwe: ["CWE-863: Incorrect Authorization", "CWE-807: Reliance on Untrusted Inputs in a Security Decision"]
+      owasp: ["A01:2021 - Broken Access Control"]
+      confidence: high
+      severity: high
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: flask.request.$SRC.get($KEY, ...)
+              - pattern: flask.request.$SRC[$KEY]
+          - metavariable-regex:
+              metavariable: $SRC
+              regex: ^(args|form|values|headers|cookies|json)$
+          - metavariable-regex:
+              metavariable: $KEY
+              regex: (?i)^[\"']?(x-)?(user[-_]?)?(roles?|is[-_]?admin|admin|is[-_]?staff|is[-_]?superuser|superuser|privileges?|permissions?|access[-_]?level|user[-_]?type|account[-_]?type|group)[\"']?$
+      - patterns:
+          - pattern-inside: |
+              def $VIEW($REQ, ...):
+                ...
+          - pattern-either:
+              - pattern: $REQ.$SRC.get($KEY, ...)
+              - pattern: $REQ.$SRC[$KEY]
+          - metavariable-regex:
+              metavariable: $SRC
+              regex: ^(GET|POST|COOKIES|headers|META|query_params|data)$
+          - metavariable-regex:
+              metavariable: $KEY
+              regex: (?i)^[\"']?(x-)?(user[-_]?)?(roles?|is[-_]?admin|admin|is[-_]?staff|is[-_]?superuser|superuser|privileges?|permissions?|access[-_]?level|user[-_]?type|account[-_]?type|group)[\"']?$
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $T == "$LIT"
+              - pattern: '"$LIT" == $T'
+              - pattern: $T != "$LIT"
+              - pattern: $T in ("$LIT", ...)
+              - pattern: $T in ["$LIT", ...]
+              - pattern: $T in {"$LIT", ...}
+          - metavariable-regex:
+              metavariable: $LIT
+              regex: (?i)^(admin|administrator|root|superuser|super[-_]?admin|staff|manager|owner|true|1|yes)$
+          - focus-metavariable: $T
+      - patterns:
+          - pattern-either:
+              - patterns:
+                  - pattern-inside: |
+                      if $T:
+                        ...
+                  - pattern: $T
+              - patterns:
+                  - pattern-inside: |
+                      if not $T:
+                        ...
+                  - pattern: $T
+              - pattern: $T is True
+          - focus-metavariable: $T

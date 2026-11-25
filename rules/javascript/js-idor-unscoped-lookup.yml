@@ -1,0 +1,29 @@
+rules:
+  - id: js-idor-unscoped-lookup
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      A record is loaded by the id in the URL on a logged-in route, but the handler never looks at
+      who is logged in (`req.user`). Any user can change the id and read or change someone else's
+      record (IDOR). Scope the query to the owner (`findOne({ _id: req.params.id, owner: req.user.id })`)
+      or check ownership before using the record.
+    metadata:
+      title: Record loaded by URL id without an ownership check
+      cwe: ["CWE-639: Authorization Bypass Through User-Controlled Key"]
+      owasp: ["A01:2021 - Broken Access Control"]
+      confidence: medium
+      severity: high
+    patterns:
+      # Routes with at least one middleware (taken as authentication).
+      - pattern-inside: $APP.$VERB($PATH, $MW, ..., $H)
+      - metavariable-regex:
+          metavariable: $VERB
+          regex: ^(get|post|put|patch|delete)$
+      # The handler never refers to the current user.
+      - metavariable-regex:
+          metavariable: $H
+          regex: ^(?![\s\S]*(\.(user|auth|session)\b|currentUser|res\.locals))
+      - pattern: $MODEL.$FIND(..., <... $REQ.params.$ID ...>, ...)
+      - metavariable-regex:
+          metavariable: $FIND
+          regex: ^(findById|findByPk|findOne|findUnique|findFirst|findByIdAndUpdate|findByIdAndDelete|findByIdAndRemove|findOneAndUpdate|findOneAndDelete|deleteOne|updateOne|destroy)$

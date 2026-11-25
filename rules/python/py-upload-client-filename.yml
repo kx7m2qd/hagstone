@@ -1,0 +1,70 @@
+rules:
+  - id: py-upload-client-filename
+    languages: [python]
+    severity: ERROR
+    message: >-
+      An uploaded file is stored under the name the client sent (`file.filename` /
+      `request.FILES[...].name`) without sanitising it. The client picks both the path
+      (`../../app/templates/x.html`) and the type (`.html`, `.svg`, `.py`), so it can overwrite
+      files or plant pages your server will serve. Generate the stored name yourself
+      (`uuid.uuid4().hex`), or at least pass it through `werkzeug.utils.secure_filename`, and allow
+      only the extensions you expect.
+    metadata:
+      title: Upload stored under client-supplied filename
+      cwe: ["CWE-434: Unrestricted Upload of File with Dangerous Type"]
+      owasp: ["A04:2021 - Insecure Design"]
+      confidence: high
+      severity: high
+    mode: taint
+    pattern-sources:
+      - pattern: flask.request.files[$K].filename
+      - pattern: flask.request.files.get(...).filename
+      - patterns:
+          - pattern-either:
+              - pattern-inside: |
+                  $F = flask.request.files[$K]
+                  ...
+              - pattern-inside: |
+                  $F = flask.request.files.get(...)
+                  ...
+              - pattern-inside: |
+                  for $F in flask.request.files.getlist(...):
+                    ...
+          - pattern: $F.filename
+      - patterns:
+          - pattern-inside: |
+              def $VIEW($REQ, ...):
+                ...
+          - pattern-either:
+              - pattern: $REQ.FILES[$K].name
+              - pattern: $REQ.FILES.get(...).name
+              - patterns:
+                  - pattern-either:
+                      - pattern-inside: |
+                          $F = $REQ.FILES[$K]
+                          ...
+                      - pattern-inside: |
+                          $F = $REQ.FILES.get(...)
+                          ...
+                      - pattern-inside: |
+                          for $F in $REQ.FILES.getlist(...):
+                            ...
+                  - pattern: $F.name
+    pattern-sanitizers:
+      - pattern: secure_filename(...)
+      - pattern: werkzeug.utils.secure_filename(...)
+      - pattern: os.path.basename(...)
+      - pattern: get_valid_filename(...)
+      - pattern: os.path.splitext(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $F.save($PATH, ...)
+              - pattern: open($PATH, "=~/[wax]/", ...)
+              - pattern: open($PATH, mode="=~/[wax]/", ...)
+              - pattern: shutil.move($SRC, $PATH)
+              - pattern: shutil.copy($SRC, $PATH)
+              - pattern: shutil.copyfile($SRC, $PATH)
+              - pattern: pathlib.Path($PATH).write_bytes(...)
+              - pattern: Path($PATH).write_bytes(...)
+          - focus-metavariable: $PATH

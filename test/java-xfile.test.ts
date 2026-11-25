@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calledElsewhere, collectCalls, declarations, injectedSink, ownParamSource, newCallIndex, newTypeInfo, parseTypes, relatedTypes, relocate, ruleSections, type SinkSummary } from "../src/engines/java-xfile.js";
+import { calledElsewhere, collectCalls, declarations, injectedSink, isRequestRule, ownParamSource, newCallIndex, newTypeInfo, parseTypes, relatedTypes, relocate, ruleSections, type SinkSummary } from "../src/engines/java-xfile.js";
 
 describe("parseTypes", () => {
   it("reads package, classes and supertypes, ignoring generics and comments", () => {
@@ -39,6 +39,12 @@ class C extends HttpServlet {}`);
     const many = parseTypes(Array.from({ length: 3000 }, (_, i) => `class T${i} extends HttpServlet {}`).join("\n"));
     expect(relatedTypes("T7", many)).toEqual(["T7"]);
   });
+});
+
+describe("isRequestRule", () => {
+  const rule = (extra = "") => `rules:\n  - id: r\n    metadata:\n      cwe: [x]\n${extra}    mode: taint\n    pattern-sources:\n      - pattern: (HttpServletRequest $REQ).getParameter(...)\n`;
+  it("joins taint rules with request sources", () => expect(isRequestRule(rule())).toBe(true));
+  it("lets a narrow-source rule opt out", () => expect(isRequestRule(rule("      xfile: false\n"))).toBe(false));
 });
 
 describe("ruleSections", () => {

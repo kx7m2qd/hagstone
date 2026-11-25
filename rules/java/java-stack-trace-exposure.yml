@@ -1,0 +1,47 @@
+rules:
+  - id: java-stack-trace-exposure
+    languages: [java]
+    severity: WARNING
+    message: >-
+      An exception's stack trace is written to the HTTP response. It reveals class names, file
+      paths, library versions and code structure that help an attacker plan the next step, and
+      sometimes data from the failed operation. Log it on the server (`log.error("...", e)`) and
+      send a generic message with an error id.
+    metadata:
+      title: Stack trace sent to the client
+      cwe: ["CWE-209: Generation of Error Message Containing Sensitive Information", "CWE-200: Exposure of Sensitive Information to an Unauthorized Actor"]
+      owasp: ["A04:2021 - Insecure Design"]
+      confidence: high
+      severity: low
+    pattern-either:
+      # printStackTrace onto the response.
+      - pattern: $E.printStackTrace($R.getWriter())
+      - pattern: $E.printStackTrace(new PrintWriter($R.getWriter(), ...))
+      - pattern: $E.printStackTrace(new PrintStream($R.getOutputStream(), ...))
+      - patterns:
+          - pattern-inside: |
+              PrintWriter $W = $R.getWriter();
+              ...
+          - pattern: $E.printStackTrace($W)
+      # A stack-trace string written or returned.
+      - patterns:
+          - pattern-either:
+              - pattern: $R.getWriter().$P(<... $STACK ...>)
+              - pattern: (PrintWriter $W).$P(<... $STACK ...>)
+              - pattern: ResponseEntity.$S(...).body(<... $STACK ...>)
+              - pattern: new ResponseEntity<$T>(<... $STACK ...>, ...)
+              - patterns:
+                  - pattern-either:
+                      - pattern-inside: |
+                          @ExceptionHandler(...)
+                          $RET $M(...) { ... }
+                      - pattern-inside: |
+                          @$MAPPING(...)
+                          $RET $M(...) { ... }
+                  - pattern: return <... $STACK ...>;
+          - metavariable-pattern:
+              metavariable: $STACK
+              pattern-either:
+                - pattern: ExceptionUtils.getStackTrace(...)
+                - pattern: Throwables.getStackTraceAsString(...)
+                - pattern: $X.getStackTrace()

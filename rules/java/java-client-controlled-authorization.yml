@@ -1,0 +1,79 @@
+rules:
+  - id: java-client-controlled-authorization
+    languages: [java]
+    severity: ERROR
+    message: >-
+      An access decision is made from a value the client sends (a `role` / `isAdmin` request
+      parameter, header or cookie). Anyone can send `role=admin` and get admin access.
+      Authorization must come from server-side state: the role stored for the logged-in user
+      (session, database, verified token claims), never from a parameter, header or cookie the
+      client can set to anything.
+    metadata:
+      title: Authorization based on client-controlled data
+      cwe: ["CWE-863: Incorrect Authorization", "CWE-807: Reliance on Untrusted Inputs in a Security Decision"]
+      owasp: ["A01:2021 - Broken Access Control"]
+      confidence: high
+      severity: high
+      # Only role-named inputs are sources: keep generic cross-file sources out.
+      xfile: false
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: (HttpServletRequest $REQ).$GET("$KEY")
+              - pattern: (javax.servlet.http.HttpServletRequest $REQ).$GET("$KEY")
+              - pattern: (jakarta.servlet.http.HttpServletRequest $REQ).$GET("$KEY")
+          - metavariable-regex:
+              metavariable: $GET
+              regex: ^(getParameter|getHeader)$
+          - metavariable-regex:
+              metavariable: $KEY
+              regex: (?i)^[\"']?(x-)?(user[-_]?)?(roles?|is[-_]?admin|admin|is[-_]?staff|is[-_]?superuser|superuser|privileges?|permissions?|access[-_]?level|user[-_]?type|account[-_]?type|group)[\"']?$
+      # Spring handler parameters named or bound like a role (the declaration, so the flow is tracked).
+      - patterns:
+          - pattern-either:
+              - pattern: $RET $M(..., @$ANN("$KEY") $T $P, ...) { ... }
+              - pattern: $RET $M(..., @$ANN(value = "$KEY", ...) $T $P, ...) { ... }
+              - pattern: $RET $M(..., @$ANN(name = "$KEY", ...) $T $P, ...) { ... }
+          - metavariable-regex:
+              metavariable: $ANN
+              regex: ^(RequestParam|RequestHeader|CookieValue|QueryParam|HeaderParam|CookieParam)$
+          - metavariable-regex:
+              metavariable: $KEY
+              regex: (?i)^[\"']?(x-)?(user[-_]?)?(roles?|is[-_]?admin|admin|is[-_]?staff|is[-_]?superuser|superuser|privileges?|permissions?|access[-_]?level|user[-_]?type|account[-_]?type|group)[\"']?$
+          - focus-metavariable: $P
+      - patterns:
+          - pattern-either:
+              - pattern: $RET $M(..., @$ANN $T $P, ...) { ... }
+              - pattern: $RET $M(..., @$ANN(...) $T $P, ...) { ... }
+          - metavariable-regex:
+              metavariable: $ANN
+              regex: ^(RequestParam|RequestHeader|CookieValue|QueryParam|HeaderParam|CookieParam)$
+          - metavariable-regex:
+              metavariable: $P
+              regex: (?i)^[\"']?(x-)?(user[-_]?)?(roles?|is[-_]?admin|admin|is[-_]?staff|is[-_]?superuser|superuser|privileges?|permissions?|access[-_]?level|user[-_]?type|account[-_]?type|group)[\"']?$
+          - focus-metavariable: $P
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: '"$LIT".equals($T)'
+              - pattern: '"$LIT".equalsIgnoreCase($T)'
+              - pattern: $T.equals("$LIT")
+              - pattern: $T.equalsIgnoreCase("$LIT")
+          - metavariable-regex:
+              metavariable: $LIT
+              regex: (?i)^(admin|administrator|root|superuser|super[-_]?admin|staff|manager|owner|true|1|yes)$
+          - focus-metavariable: $T
+      - patterns:
+          - pattern-either:
+              - pattern: Boolean.parseBoolean($T)
+              - pattern: Boolean.valueOf($T)
+              - pattern: $T == true
+              - patterns:
+                  - pattern-either:
+                      - pattern-inside: if ($T) { ... }
+                      - pattern-inside: if ($T) $S;
+                      - pattern-inside: if (!$T) { ... }
+                      - pattern-inside: if (!$T) $S;
+                  - pattern: $T
+          - focus-metavariable: $T

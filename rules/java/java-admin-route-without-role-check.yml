@@ -1,0 +1,23 @@
+rules:
+  - id: java-admin-route-without-role-check
+    languages: [java]
+    severity: WARNING
+    message: >-
+      Spring Security only requires login for admin or management paths (`.authenticated()`), not
+      an admin role. Any registered user can call them. Use
+      `.requestMatchers("/admin/**").hasRole("ADMIN")` (or `hasAuthority(...)`), or add
+      `@PreAuthorize("hasRole('ADMIN')")` on the controller.
+    metadata:
+      title: Admin paths without a role check
+      cwe: ["CWE-862: Missing Authorization"]
+      owasp: ["A01:2021 - Broken Access Control"]
+      confidence: medium
+      severity: high
+    patterns:
+      - pattern: $X.$MATCH(..., "$PATH", ...).authenticated()
+      - metavariable-regex:
+          metavariable: $MATCH
+          regex: ^(requestMatchers|antMatchers|mvcMatchers|regexMatchers)$
+      - metavariable-regex:
+          metavariable: $PATH
+          regex: ^\^?/(api/)?(admin|administration|internal|manage|management|ops|actuator(/(\*\*?|env|heapdump|shutdown|beans|configprops|loggers|threaddump|jolokia|mappings|gateway).*)?$)

@@ -1,0 +1,31 @@
+rules:
+  - id: js-csrf-samesite-none
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      The session cookie is set with `SameSite=None` (or `sameSite: false`), so the browser sends it
+      on requests started by any other website. Without a CSRF token, that site can make a
+      logged-in user's browser change their data. Use `sameSite: 'lax'` (or `'strict'`); if you
+      really need cross-site cookies, add CSRF tokens to every state-changing request.
+    metadata:
+      title: Session cookie sent cross-site (CSRF)
+      cwe: ["CWE-352: Cross-Site Request Forgery (CSRF)", "CWE-1275: Sensitive Cookie with Improper SameSite Attribute"]
+      owasp: ["A01:2021 - Broken Access Control"]
+      confidence: medium
+      severity: medium
+    pattern-either:
+      - patterns:
+          - pattern-either:
+              - pattern: '$S({..., cookie: {..., sameSite: $SS, ...}, ...})'
+              - pattern: 'cookieSession({..., sameSite: $SS, ...})'
+          - metavariable-regex:
+              metavariable: $SS
+              regex: ^(["'](?i:none)["']|false)$
+      - patterns:
+          - pattern: '$R.cookie("$NAME", $V, {..., sameSite: $SS, ...})'
+          - metavariable-regex:
+              metavariable: $SS
+              regex: ^(["'](?i:none)["']|false)$
+          - metavariable-regex:
+              metavariable: $NAME
+              regex: (?i).*(sess|sid|token|auth|jwt|remember|login)

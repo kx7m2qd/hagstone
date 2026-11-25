@@ -1,0 +1,40 @@
+rules:
+  - id: js-world-writable-permissions
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      A file or directory is made writable by every user on the machine (mode with the "others
+      write" bit, e.g. `0o777` / `0o666`, or `process.umask(0)`). Any local user or compromised
+      service can then change it, which turns into code execution if it holds code, config or
+      uploads that get served. Use the narrowest mode that works (`0o600` / `0o640` for files,
+      `0o700` / `0o750` for directories).
+    metadata:
+      title: World-writable file permissions
+      cwe: ["CWE-732: Incorrect Permission Assignment for Critical Resource"]
+      owasp: ["A01:2021 - Broken Access Control"]
+      confidence: high
+      severity: medium
+    pattern-either:
+      - patterns:
+          - pattern-either:
+              - pattern: fs.chmod($P, $MODE, ...)
+              - pattern: fs.chmodSync($P, $MODE)
+              - pattern: fs.promises.chmod($P, $MODE)
+              - pattern: fs.fchmod($FD, $MODE, ...)
+              - pattern: fs.fchmodSync($FD, $MODE)
+              - pattern: '$FS.mkdir($P, {..., mode: $MODE, ...}, ...)'
+              - pattern: '$FS.mkdirSync($P, {..., mode: $MODE, ...})'
+              - pattern: '$FS.writeFile($P, $D, {..., mode: $MODE, ...}, ...)'
+              - pattern: '$FS.writeFileSync($P, $D, {..., mode: $MODE, ...})'
+          # Octal literals (0o777, 0777) by text; Opengrep doesn't evaluate JS octal.
+          - metavariable-regex:
+              metavariable: $MODE
+              regex: ^0[oO]?[0-7]*[2367]$
+      - patterns:
+          - pattern-either:
+              - pattern: fs.chmod($P, "$MODE", ...)
+              - pattern: fs.chmodSync($P, "$MODE")
+          - metavariable-regex:
+              metavariable: $MODE
+              regex: ^0?[0-7]?[0-7]{2}[2367]$
+      - pattern: process.umask(0)

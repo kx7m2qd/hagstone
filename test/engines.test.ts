@@ -49,6 +49,13 @@ describe("opengrep normalizer", () => {
     expect(f?.dataflow?.map((s) => s.line)).toEqual([1, 5]);
   });
 
+  it("keeps only the innermost of nested matches of one rule", () => {
+    const outer = { ...result(5, "return db.query(sql)"), start: { line: 5, col: 1 }, end: { line: 5, col: 50 } };
+    const other = { ...result(5, "db.query(sql)"), check_id: "x.js-other" };
+    const fs = normalizeOpengrep(ROOT, { results: [outer, result(5, "db.query(sql)"), other], errors: [] });
+    expect(fs.map((f) => [f.ruleId, f.location.startColumn])).toEqual([["js-sql-injection", 3], ["js-other", 3]]);
+  });
+
   it("keeps fingerprints stable across line moves and reformatting", () => {
     const [a] = normalizeOpengrep(ROOT, { results: [result(5, "db.query(sql)")], errors: [] });
     const [b] = normalizeOpengrep(ROOT, { results: [result(42, "db.query(  sql )")], errors: [] });

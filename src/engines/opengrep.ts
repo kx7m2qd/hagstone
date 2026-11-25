@@ -127,14 +127,26 @@ function dataflow(root: string, r: OgResult, clean: (s: string) => string): Data
   return steps.length ? steps : undefined;
 }
 
+const pos = (p: { line: number; col: number }) => p.line * 1e6 + p.col;
+/** True when `outer`'s range strictly contains `inner`'s. */
+function contains(outer: { start: { line: number; col: number }; end: { line: number; col: number } }, inner: typeof outer): boolean {
+  const [os, oe, is, ie] = [pos(outer.start), pos(outer.end), pos(inner.start), pos(inner.end)];
+  return os <= is && ie <= oe && (os !== is || oe !== ie);
+}
+
 export function normalizeOpengrep(root: string, out: OgOutput): Finding[] {
   const occurrences = new Map<string, number>();
   // A taint rule reports one result per source reaching the same sink; keep one per range.
   const ranges = new Set<string>();
-  const results = out.results.filter((r) => {
+  const unique = out.results.filter((r) => {
     const key = [r.check_id, r.path, r.start.line, r.start.col, r.end.line, r.end.col].join("\u0000");
     return ranges.has(key) ? false : (ranges.add(key), true);
   });
+  // Two sink patterns of one rule can match nested expressions (`return jsonify(x)` and
+  // `jsonify(x)`): one issue, so keep only the innermost range.
+  const results = unique.filter(
+    (r) => !unique.some((o) => o !== r && o.check_id === r.check_id && o.path === r.path && contains(r, o)),
+  );
   return results.map((r) => {
     const meta = r.extra.metadata ?? {};
     const ruleId = ruleIdOf(r.check_id);

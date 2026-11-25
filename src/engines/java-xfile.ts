@@ -157,7 +157,13 @@ export function ruleSections(text: string): Map<string, string> {
 }
 
 /** Rules whose sources are request data (the ones cross-file flows matter for). */
-export const isRequestRule = (text: string) => /mode: taint/.test(text) && /HttpServletRequest \$REQ/.test(text);
+/**
+ * Taint rules whose sources are general request input join the cross-file pass. A rule with
+ * narrower sources (e.g. only role-named parameters) opts out with `xfile: false` in its metadata:
+ * injected cross-file sources would drop that restriction.
+ */
+export const isRequestRule = (text: string) =>
+  /mode: taint/.test(text) && /HttpServletRequest \$REQ/.test(text) && !/^\s*xfile:\s*false\b/m.test(text);
 
 function paramSources(): string {
   let s = "";
@@ -397,7 +403,11 @@ ${sec.get("pattern-sanitizers") ?? ""}    pattern-sinks:
 ${sec.get("pattern-sinks") ?? ""}${injectedSinks(id)}`,
       );
     }
-    const base = ruleSections(requestRules[0]![1]);
+    // The return rule needs the broadest request sources: take the rule that lists the most, not the
+    // first by name (a new rule sorting first must not narrow every cross-file source).
+    const base = requestRules
+      .map(([, t]) => ruleSections(t))
+      .reduce((a, b) => ((b.get("pattern-sources") ?? "").length > (a.get("pattern-sources") ?? "").length ? b : a));
     await writeFile(
       join(dir, "xf-return.yml"),
       `rules:

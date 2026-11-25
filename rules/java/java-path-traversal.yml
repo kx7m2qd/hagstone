@@ -68,6 +68,8 @@ rules:
               - pattern-inside: if (!$X.matches($RE)) $S;
           - pattern: $X
       - pattern: org.apache.commons.io.FilenameUtils.getName(...)
+      # The text after the last dot, and only when the dot follows the last separator: never a path.
+      - pattern: org.apache.commons.io.FilenameUtils.getExtension(...)
       - pattern: (java.nio.file.Path $P).getFileName()
       - pattern: (java.io.File $F).getName()
       - pattern: $PATHS.get(...).getFileName()

@@ -1,0 +1,44 @@
+rules:
+  - id: java-csrf-disabled
+    languages: [java]
+    severity: WARNING
+    message: >-
+      Spring Security's CSRF protection is turned off for an app that keeps a session. Any website
+      a logged-in user visits can then make their browser send state-changing requests (change
+      email, transfer, delete) with their session cookie. Keep CSRF on for session-based apps; turn
+      it off only for stateless APIs authenticated by a header token, and say so with
+      `sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))`.
+    metadata:
+      title: CSRF protection disabled
+      cwe: ["CWE-352: Cross-Site Request Forgery (CSRF)"]
+      owasp: ["A01:2021 - Broken Access Control"]
+      confidence: medium
+      severity: medium
+    patterns:
+      - pattern-either:
+          - pattern: $H.csrf().disable()
+          # Opengrep can't match method references (`X::disable`) in patterns: check the argument's text.
+          - patterns:
+              - pattern: $H.csrf($ARG)
+              - metavariable-regex:
+                  metavariable: $ARG
+                  regex: ^(\w+::disable|\(?\s*\w+\s*\)?\s*->\s*\{?\s*\w+\.disable\(\)\s*;?\s*\}?)$
+      # Stateless token APIs don't use cookies for auth, so CSRF doesn't apply: STATELESS set in the
+      # same chain (before or after) or anywhere in the same method.
+      - metavariable-regex:
+          metavariable: $H
+          regex: ^(?![\s\S]*SessionCreationPolicy\.STATELESS)
+      - pattern-not-inside: $A.sessionManagement($S -> $S.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+      - pattern-not-inside: $A.sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+      - pattern-not-inside: |
+          $RET $M(...) {
+            ...
+            $Y.sessionCreationPolicy(SessionCreationPolicy.STATELESS);
+            ...
+          }
+      - pattern-not-inside: |
+          $RET $M(...) {
+            ...
+            $Y.sessionManagement($S -> $S.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+            ...
+          }

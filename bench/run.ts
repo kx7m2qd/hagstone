@@ -20,7 +20,8 @@ const BENCH_DIR = fileURLToPath(new URL(".", import.meta.url));
 const CASES_DIR = join(BENCH_DIR, "cases");
 const RULES_DIR = join(BENCH_DIR, "..", "rules");
 const SOURCE_EXT = /\.(js|jsx|mjs|cjs|ts|tsx|py|java|tf|ya?ml)$|^(Docker|Container)file(\..+)?$/;
-const LABEL = /(?:\/\/|#)\s*expect:\s*([a-z0-9-]+)/;
+/** `expect: rule-id`, or `expect: a, b` when two rules rightly report the same line (different CWEs). */
+const LABEL = /(?:\/\/|#)\s*expect:\s*([a-z0-9-]+(?:\s*,\s*[a-z0-9-]+)*)/;
 
 interface Label {
   ruleId: string;
@@ -51,7 +52,7 @@ async function loadLabels(files: string[]): Promise<Label[]> {
     lines.forEach((text, i) => {
       const m = text.match(LABEL);
       // IaC check IDs (AWS-0107) are labeled in lowercase; compare case-insensitively.
-      if (m?.[1]) labels.push({ ruleId: m[1].toLowerCase(), path, line: i + 2 });
+      for (const id of m?.[1]?.split(",") ?? []) labels.push({ ruleId: id.trim().toLowerCase(), path, line: i + 2 });
     });
   }
   return labels;

@@ -1,15 +1,15 @@
 {
   "pass": true,
   "precision": 1,
-  "recall": 0.987,
+  "recall": 0.991,
   "thresholds": {
     "precision": 0.95,
     "recall": 0.85
   },
   "totals": {
-    "labels": 79,
-    "findings": 78,
-    "tp": 78,
+    "labels": 113,
+    "findings": 112,
+    "tp": 112,
     "fp": 0,
     "fn": 1
   },
@@ -56,6 +56,34 @@
       "precision": 1,
       "recall": 1
     },
+    "java-admin-route-without-auth": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    "java-admin-route-without-role-check": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    "java-client-controlled-authorization": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    "java-code-injection": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
     "java-command-injection": {
       "tp": 1,
       "fp": 0,
@@ -63,7 +91,28 @@
       "precision": 1,
       "recall": 1
     },
+    "java-csrf-disabled": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    "java-idor-unscoped-lookup": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
     "java-insecure-cookie": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    "java-jackson-polymorphic-typing": {
       "tp": 1,
       "fp": 0,
       "fn": 0,
@@ -78,6 +127,13 @@
       "recall": 1
     },
     "java-path-traversal": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    "java-regex-injection": {
       "tp": 1,
       "fp": 0,
       "fn": 0,
@@ -91,7 +147,35 @@
       "precision": 1,
       "recall": 1
     },
+    "java-ssrf": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    "java-stack-trace-exposure": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
     "java-trust-boundary": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    "java-unsafe-deserialization": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    "java-upload-client-filename": {
       "tp": 1,
       "fp": 0,
       "fn": 0,
@@ -119,7 +203,35 @@
       "precision": 1,
       "recall": 1
     },
+    "java-world-writable-permissions": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
     "java-xss": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    "js-admin-route-without-auth": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    "js-admin-route-without-role-check": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    "js-client-controlled-authorization": {
       "tp": 1,
       "fp": 0,
       "fn": 0,
@@ -135,6 +247,20 @@
     },
     "js-command-injection": {
       "tp": 2,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    "js-csrf-samesite-none": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    "js-idor-unscoped-lookup": {
+      "tp": 1,
       "fp": 0,
       "fn": 0,
       "precision": 1,
@@ -224,7 +350,21 @@
       "precision": 1,
       "recall": 1
     },
+    "js-stack-trace-exposure": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
     "js-unsafe-deserialization": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    "js-upload-client-filename": {
       "tp": 1,
       "fp": 0,
       "fn": 0,
@@ -239,6 +379,13 @@
       "recall": 1
     },
     "js-weak-random": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    "js-world-writable-permissions": {
       "tp": 1,
       "fp": 0,
       "fn": 0,
@@ -336,6 +483,27 @@
       "precision": 1,
       "recall": 1
     },
+    "py-admin-route-without-auth": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    "py-admin-route-without-role-check": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    "py-client-controlled-authorization": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
     "py-code-injection": {
       "tp": 1,
       "fp": 0,
@@ -345,6 +513,20 @@
     },
     "py-command-injection": {
       "tp": 2,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    "py-csrf-disabled": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    "py-idor-unscoped-lookup": {
+      "tp": 1,
       "fp": 0,
       "fn": 0,
       "precision": 1,
@@ -385,8 +567,29 @@
       "precision": 1,
       "recall": 1
     },
+    "py-regex-injection": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
     "py-sql-injection": {
       "tp": 2,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    "py-ssrf": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    "py-stack-trace-exposure": {
+      "tp": 1,
       "fp": 0,
       "fn": 0,
       "precision": 1,
@@ -406,6 +609,13 @@
       "precision": 1,
       "recall": 1
     },
+    "py-upload-client-filename": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
     "py-weak-hash": {
       "tp": 1,
       "fp": 0,
@@ -414,6 +624,13 @@
       "recall": 1
     },
     "py-weak-random": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1
+    },
+    "py-world-writable-permissions": {
       "tp": 1,
       "fp": 0,
       "fn": 0,

@@ -1,0 +1,59 @@
+rules:
+  - id: java-idor-unscoped-lookup
+    languages: [java]
+    severity: WARNING
+    message: >-
+      A handler receives the logged-in user (`Principal` / `@AuthenticationPrincipal`) but loads a
+      record by the id from the request without ever using it. Any user can change the id and read
+      or change someone else's record (IDOR). Scope the query to the owner
+      (`findByIdAndOwner(id, principal.getName())`), check ownership, or use `@PostAuthorize`.
+    metadata:
+      title: Record loaded by request id without an ownership check
+      cwe: ["CWE-639: Authorization Bypass Through User-Controlled Key"]
+      owasp: ["A01:2021 - Broken Access Control"]
+      confidence: medium
+      severity: high
+    patterns:
+      - pattern-either:
+          - pattern-inside: '$RET $M(..., @PathVariable $IT $ID, ..., Principal $P, ...) { ... }'
+          - pattern-inside: '$RET $M(..., @PathVariable $IT $ID, ..., Authentication $P, ...) { ... }'
+          - pattern-inside: '$RET $M(..., @PathVariable $IT $ID, ..., @AuthenticationPrincipal $PT $P, ...) { ... }'
+          - pattern-inside: '$RET $M(..., @PathVariable(...) $IT $ID, ..., Principal $P, ...) { ... }'
+          - pattern-inside: '$RET $M(..., @PathVariable(...) $IT $ID, ..., Authentication $P, ...) { ... }'
+          - pattern-inside: '$RET $M(..., @PathVariable(...) $IT $ID, ..., @AuthenticationPrincipal $PT $P, ...) { ... }'
+      - pattern-either:
+          - pattern: $REPO.findById($ID)
+          - pattern: $REPO.getById($ID)
+          - pattern: $REPO.getReferenceById($ID)
+          - pattern: $REPO.deleteById($ID)
+          - pattern: $REPO.existsById($ID)
+      # The principal is used somewhere in the body: assume it scopes or checks the record.
+      - pattern-not-inside: |
+          $RET $M(..., $PT2 $P, ...) {
+            ...
+            $Q.$F(..., <... $P ...>, ...);
+            ...
+          }
+      - pattern-not-inside: |
+          $RET $M(..., $PT2 $P, ...) {
+            ...
+            $F(..., <... $P ...>, ...);
+            ...
+          }
+      - pattern-not-inside: |
+          $RET $M(..., $PT2 $P, ...) {
+            ...
+            return <... $P ...>;
+          }
+      - pattern-not-inside: |
+          $RET $M(..., $PT2 $P, ...) {
+            ...
+            if (<... $P ...>) $S;
+            ...
+          }
+      - pattern-not-inside: |
+          @PostAuthorize(...)
+          $RET $M(...) { ... }
+      - pattern-not-inside: |
+          @PreAuthorize(...)
+          $RET $M(...) { ... }

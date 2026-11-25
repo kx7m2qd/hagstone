@@ -52,6 +52,7 @@
     "bench:owasp": "tsx bench/owasp.ts",
     "bench:owasp:java": "tsx bench/owasp.ts java",
     "bench:cves": "tsx bench/cves.ts",
+    "coverage:cwe": "tsx bench/cwe-coverage.ts",
     "data:popular": "tsx scripts/fetch-popular.ts",
     "verify:engines": "tsx scripts/verify-signatures.ts",
     "prepack": "npm run build"

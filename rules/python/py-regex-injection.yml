@@ -1,0 +1,40 @@
+rules:
+  - id: py-regex-injection
+    languages: [python]
+    severity: WARNING
+    message: >-
+      A regular expression is built from request data (ReDoS / regex injection). An attacker sends a
+      pattern like `(a+)+$` that takes exponential time to match, and the worker handling the
+      request hangs; a few such requests take the service down. Escape the input with
+      `re.escape(...)` before putting it in a pattern, or use plain string methods (`in`,
+      `startswith`) instead.
+    metadata:
+      title: Regular expression built from user input (ReDoS)
+      cwe: ["CWE-1333: Inefficient Regular Expression Complexity", "CWE-400: Uncontrolled Resource Consumption"]
+      owasp: ["A03:2021 - Injection"]
+      confidence: high
+      severity: medium
+    mode: taint
+    pattern-sources:
+      - pattern: flask.request.$ATTR
+      - pattern: flask.request.$METHOD(...)
+      - patterns:
+          - pattern-inside: |
+              def $VIEW($REQ, ...):
+                ...
+          - pattern-either:
+              - pattern: $REQ.GET
+              - pattern: $REQ.POST
+    pattern-sanitizers:
+      - pattern: re.escape(...)
+      - pattern: regex.escape(...)
+      - pattern: int(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: re.$F($PATTERN, ...)
+              - pattern: regex.$F($PATTERN, ...)
+          - metavariable-regex:
+              metavariable: $F
+              regex: ^(compile|match|search|fullmatch|findall|finditer|sub|subn|split)$
+          - focus-metavariable: $PATTERN

@@ -57,4 +57,10 @@ public class Files1 {
     // ok: java-path-traversal
     new FileReader(BASE + "index.txt").close();
   }
+
+  void extensionOnly(HttpServletRequest request) throws IOException {
+    String ext = FilenameUtils.getExtension(request.getParameter("name"));
+    // ok: java-path-traversal
+    new FileOutputStream(BASE + java.util.UUID.randomUUID() + "." + ext).close();
+  }
 }
