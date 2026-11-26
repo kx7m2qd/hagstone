@@ -1,5 +1,9 @@
+import { stat } from "node:fs/promises";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { fingerprint, SEVERITY_ORDER, VULNERABLE_DEPENDENCY, type Finding, type Severity } from "../core/finding.js";
+import { cacheRoot } from "./install.js";
+import { addManifestLines } from "./manifest-lines.js";
 import { toRelative } from "./paths.js";
 import { run } from "./run.js";
 import type { EngineOutput } from "./types.js";
@@ -169,31 +173,80 @@ export function normalizeOsv(root: string, out: OsvOutput): Finding[] {
   return findings;
 }
 
-export async function runOsv(bin: string, root: string): Promise<EngineOutput> {
-  // Only package names and versions are sent to the OSV API, never source code.
+/** Where `hagstone offline-db` keeps OSV's per-ecosystem databases for `--offline` scans. */
+export const OSV_DB_DIR = () => join(cacheRoot(), "osv-db");
+/** Warn when an offline database is older than this. */
+const STALE_DAYS = 7;
+
+const baseArgs = [
+  "scan",
+  "source",
+  "--format=json",
+  // Our config, not the repo's osv-scanner.toml (which can ignore vulnerabilities).
+  `--config=${CONFIG}`,
+  // No call analysis: for some ecosystems it runs the repo's build scripts.
+  "--no-call-analysis=all",
+  // No transitive resolution: a manifest (e.g. pom.xml <repositories>) could
+  // otherwise point the scanner at servers the repo chooses.
+  "--no-resolve",
+];
+
+/** Ecosystems osv-scanner had no offline database for (it then reports nothing for them, exit 0). Pure. */
+export function missingOfflineDbs(stderr: string): string[] {
+  return [...new Set([...stderr.matchAll(/could not load db for (\S+) ecosystem/g)].map((m) => m[1]!))];
+}
+
+/** Offline databases osv-scanner loaded: ecosystem → file. Pure. */
+export function loadedOfflineDbs(stderr: string): Map<string, string> {
+  return new Map([...stderr.matchAll(/Loaded (\S+) local db from (.+)$/gm)].map((m) => [m[1]!, m[2]!.trim()]));
+}
+
+const OFFLINE_DB_HINT = "Run `hagstone offline-db` once with network access, or scan without --offline.";
+
+export async function runOsv(bin: string, root: string, opts: { offline?: boolean } = {}): Promise<EngineOutput> {
+  // Online: package names and versions go to the OSV API, never source code.
+  // Offline: matched against databases downloaded earlier by `hagstone offline-db`; nothing is sent.
   const res = await run(
     bin,
-    [
-      "scan",
-      "source",
-      "--format=json",
-      // Our config, not the repo's osv-scanner.toml (which can ignore vulnerabilities).
-      `--config=${CONFIG}`,
-      // No call analysis: for some ecosystems it runs the repo's build scripts.
-      "--no-call-analysis=all",
-      // No transitive resolution: a manifest (e.g. pom.xml <repositories>) could
-      // otherwise point the scanner at servers the repo chooses.
-      "--no-resolve",
-      "-r",
-      "--",
-      ".",
-    ],
-    { cwd: root },
+    [...baseArgs, ...(opts.offline ? ["--offline", "--offline-vulnerabilities"] : []), "-r", "--", "."],
+    { cwd: root, ...(opts.offline ? { env: { OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY: OSV_DB_DIR() } } : {}) },
   );
+  // Without a database osv-scanner reports no vulnerabilities (sometimes with exit 0). That must not pass.
+  const missing = opts.offline ? missingOfflineDbs(res.stderr) : [];
+  if (missing.length) throw new Error(`no offline vulnerability database for ${missing.join(", ")}. ${OFFLINE_DB_HINT}`);
   // 0 = clean, 1 = vulnerabilities found, 128 = no packages/lockfiles found.
   if (res.code === 128) return { findings: [], warnings: [] };
   if (res.code !== 0 && res.code !== 1) {
     throw new Error(`osv-scanner exited ${res.code}: ${res.stderr.trim().slice(0, 500)}`);
   }
-  return { findings: normalizeOsv(root, JSON.parse(res.stdout) as OsvOutput), warnings: [] };
+  const warnings: string[] = [];
+  if (opts.offline) {
+    for (const [eco, file] of loadedOfflineDbs(res.stderr)) {
+      const mtime = await stat(file).then((s) => s.mtimeMs).catch(() => undefined);
+      const days = mtime === undefined ? 0 : Math.floor((Date.now() - mtime) / 86_400_000);
+      if (days >= STALE_DAYS)
+        warnings.push(`osv-scanner: the offline ${eco} vulnerability database is ${days} days old; run \`hagstone offline-db\` to update it`);
+    }
+  }
+  const findings = normalizeOsv(root, JSON.parse(res.stdout) as OsvOutput);
+  await addManifestLines(root, findings);
+  return { findings, warnings };
+}
+
+/**
+ * Download (or refresh) OSV's database for every ecosystem the project at `root` uses, for later
+ * `--offline` scans. Sends nothing about the project: whole-ecosystem archives are downloaded.
+ */
+export async function downloadOfflineDbs(bin: string, root: string): Promise<{ ecosystems: string[]; dir: string }> {
+  const dir = OSV_DB_DIR();
+  const res = await run(bin, [...baseArgs, "--offline-vulnerabilities", "--download-offline-databases", "-r", "--", "."], {
+    cwd: root,
+    env: { OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY: dir },
+  });
+  if (res.code === 128) return { ecosystems: [], dir };
+  const missing = missingOfflineDbs(res.stderr);
+  if ((res.code !== 0 && res.code !== 1) || missing.length) {
+    throw new Error(`osv-scanner couldn't download the vulnerability database${missing.length ? ` for ${missing.join(", ")}` : ""}: ${res.stderr.trim().slice(-500)}`);
+  }
+  return { ecosystems: [...loadedOfflineDbs(res.stderr).keys()].sort(), dir };
 }

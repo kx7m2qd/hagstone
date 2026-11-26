@@ -39,7 +39,7 @@ scanning** (annotated on changed lines in the PR), and a findings table in the r
 | `trust-reachability` | `false` | Let `fail-on` use the lowered severity of dependencies nothing uses, or only tests and dev tooling use |
 | `reachable-only` | `false` | Leave unreachable dependency findings out entirely |
 | `include-tests` | `false` | Also report code and dependency findings in test and example code (secrets and malicious packages are always reported) |
-| `offline` | `false` | Skip npm/PyPI registry lookups (package names only are ever sent) |
+| `offline` | `false` | Send no package names anywhere: download OSV's databases for the project's ecosystems at the start of the job, match offline, and skip npm/PyPI lookups |
 | `engines` | all | Comma-separated subset: `opengrep,osv-scanner,gitleaks,pkgrisk,trivy,syft` |
 | `upload-sarif` | `true` | Upload to code scanning. Private repos need GitHub Advanced Security. |
 | `sarif-file` | `hagstone.sarif` | Where the report is written (also an output, for later steps) |

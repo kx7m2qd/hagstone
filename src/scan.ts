@@ -97,7 +97,7 @@ export async function scan(target: string, opts: ScanOptions = {}): Promise<Scan
 
   const runners: Partial<Record<BinaryEngine, (bin: string) => Promise<EngineOutput>>> = {
     opengrep: (bin) => runOpengrep(bin, root, ignores),
-    "osv-scanner": (bin) => runOsv(bin, root),
+    "osv-scanner": (bin) => runOsv(bin, root, { offline: opts.offline ?? false }),
     gitleaks: (bin) => runGitleaks(bin, root),
     syft: (bin) => runSyftLicenses(bin, root, ignores, { offline: opts.offline ?? false, policy: license!.policy }),
     trivy: (bin) => runTrivy(bin, root, ignores, { includeHardening: opts.includeHardening ?? false }),

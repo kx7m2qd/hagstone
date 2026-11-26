@@ -37,7 +37,10 @@ inputs:
     description: Also report code and dependency findings in test and example code (hidden by default).
     default: "false"
   offline:
-    description: Skip the registry lookups in the supply-chain checks (npm/PyPI package names only).
+    description: >-
+      Send no package names anywhere. Vulnerabilities are matched against OSV databases downloaded for the
+      project's ecosystems at the start of the job (whole archives; nothing about the project is sent),
+      and the npm/PyPI registry checks are skipped.
     default: "false"
   engines:
     description: Comma-separated subset of engines to run (default all).
@@ -191,7 +194,13 @@ runs:
         [ "$IN_TRUST" = "true" ] && args+=(--trust-reachability)
         [ "$IN_REACHABLE_ONLY" = "true" ] && args+=(--reachable-only)
         [ "$IN_INCLUDE_TESTS" = "true" ] && [ -z "$IN_IMAGE" ] && args+=(--include-tests)
-        [ "$IN_OFFLINE" = "true" ] && args+=(--offline)
+        if [ "$IN_OFFLINE" = "true" ]; then
+          args+=(--offline)
+          # osv-scanner's offline mode needs its databases; fetch them for this project's ecosystems.
+          if [ -z "$IN_IMAGE" ] && { [ -z "$IN_ENGINES" ] || [[ ",${IN_ENGINES// /}," == *",osv-scanner,"* ]]; }; then
+            node "$ACTION_PATH/dist/cli.js" offline-db "$IN_PATH"
+          fi
+        fi
         [ -n "$IN_ENGINES" ] && [ -z "$IN_IMAGE" ] && args+=(--engines "$IN_ENGINES")
         set +e
         node "$ACTION_PATH/dist/cli.js" "${args[@]}"

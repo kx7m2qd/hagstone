@@ -3,8 +3,9 @@
 Local-first application security scanner. One command runs SAST, dependency vulnerability, secret,
 supply-chain, infrastructure-as-code and license checks, and reports everything as a single list of findings.
 
-Your source code never leaves your machine or CI runner. The supply-chain and license checks send package
-names and versions to npm and PyPI and nothing else, and `--offline` turns those lookups off too.
+Your source code never leaves your machine or CI runner. To look up vulnerabilities and package risk,
+Hagstone sends package names and versions to osv.dev, npm and PyPI, and nothing else. `--offline` sends
+nothing: vulnerabilities are matched against databases you download once with `hagstone offline-db`.
 
 - **Code:** taint-aware [Opengrep](https://github.com/opengrep/opengrep) rules for JavaScript/TypeScript,
   Python and Java (servlets, Spring MVC, JAX-RS; JDBC, JdbcTemplate, JPA, Hibernate). Every rule ships

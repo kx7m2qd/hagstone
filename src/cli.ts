@@ -8,6 +8,7 @@ import { gateSeverity, SEVERITY_ORDER, severityAtLeast, type EngineName, type Se
 import { enginePath, installEngine, isInstalled, resolveEngine } from "./engines/install.js";
 import { BINARY_ENGINES, ENGINES } from "./engines/manifest.js";
 import { rulePasses } from "./engines/opengrep.js";
+import { downloadOfflineDbs } from "./engines/osv.js";
 import { runSyft, type SbomFormat } from "./engines/syft.js";
 import { loadIgnorePatterns } from "./core/ignore.js";
 import { run } from "./engines/run.js";
@@ -29,8 +30,10 @@ Usage:
       --fail-on <severity|none>    Exit 1 if a finding is at least this severe (default: high)
       --engines <list>             Comma-separated subset of: ${ALL_ENGINES.join(", ")}
       --no-install                 Do not auto-install missing engines
-      --offline                    Turn off the pkgrisk network checks (registry lookups). Typosquat,
-                                   install-script and known-malicious checks still run.
+      --offline                    Send nothing over the network. Dependency vulnerabilities are
+                                   matched against the local database from \`${TOOL_NAME} offline-db\`
+                                   (the scan fails if it's missing); the npm/PyPI registry checks
+                                   are skipped (typosquat and install-script checks still run).
       --no-reachability            Skip the reachability check. By default, vulnerable dependencies
                                    that nothing in the project uses, or that only tests and dev
                                    tooling use, are shown one severity level lower, but still fail
@@ -61,10 +64,13 @@ Usage:
                                    ({"allow": [...], "deny": [...]}; CI: pass the base branch's copy).
                                    Default: AGPL/SSPL (high), GPL (medium), non-commercial (high).
 
-  pkgrisk (dependency supply-chain checks) sends package names and versions, nothing else, to
-  registry.npmjs.org and pypi.org (osv-scanner already sends the same to osv.dev), and syft looks up
-  Python package licenses on pypi.org. Source code, file paths and manifest contents never leave
-  your machine. Use --offline to send nothing.
+  Network: osv-scanner sends package names and versions to api.osv.dev; pkgrisk sends the same to
+  registry.npmjs.org and pypi.org; syft looks up Python package licenses on pypi.org. Source code,
+  file paths and manifest contents never leave your machine. --offline sends nothing.
+
+  ${TOOL_NAME} offline-db [path]   Download the dependency vulnerability databases the project at [path]
+                                    uses (one archive per ecosystem, nothing about the project is sent),
+                                    for --offline scans. Run it again to update them.
 
   ${TOOL_NAME} sbom [path] [--image <ref>] [--format cyclonedx|spdx] [--output <file>] [--offline]
                                     Write an SBOM of the project's shipped dependencies, or of an
@@ -224,6 +230,20 @@ async function cmdSbom(args: string[]): Promise<number> {
     await writeFile(values.output, sbom);
     process.stderr.write(`${TOOL_NAME}: wrote a ${format === "cyclonedx" ? "CycloneDX" : "SPDX"} SBOM to ${values.output}\n`);
   } else await writeStdout(sbom);
+  return 0;
+}
+
+async function cmdOfflineDb(args: string[]): Promise<number> {
+  const { values, positionals } = parseArgs({ args, allowPositionals: true, options: { "no-install": { type: "boolean", default: false } } });
+  if (positionals.length > 1) fail(`usage: ${TOOL_NAME} offline-db [path]`);
+  const root = resolvePath(positionals[0] ?? ".");
+  const bin = await resolveEngine("osv-scanner", { autoInstall: !values["no-install"] });
+  const { ecosystems, dir } = await downloadOfflineDbs(bin, root);
+  process.stdout.write(
+    ecosystems.length
+      ? `${TOOL_NAME}: vulnerability databases ready for ${ecosystems.join(", ")} in ${dir}. \`${TOOL_NAME} scan --offline\` uses them.\n`
+      : `${TOOL_NAME}: no packages found in ${root}, so there was nothing to download.\n`,
+  );
   return 0;
 }
 
@@ -393,6 +413,8 @@ async function main(argv: string[]): Promise<number> {
       return cmdSbom(rest);
     case "engines":
       return cmdEngines(rest);
+    case "offline-db":
+      return cmdOfflineDb(rest);
     case "baseline":
       return cmdBaseline(rest);
     case "suppress":

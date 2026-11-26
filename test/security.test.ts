@@ -183,7 +183,9 @@ describe.skipIf(!enginesReady)("hostile repo cannot suppress findings", () => {
     };
     for (const [name, body] of Object.entries(files)) await writeFile(join(repo, name), body);
 
-    const result = await scan(repo, { autoInstall: false, offline: true });
+    // osv-scanner queries osv.dev here (an offline run would need a downloaded database); pkgrisk's
+    // registry lookups aren't what this test is about, so it's left out.
+    const result = await scan(repo, { autoInstall: false, engines: ["opengrep", "gitleaks", "osv-scanner"] });
     expect(result.engines.every((e) => e.ok)).toBe(true);
     const rules = new Set(result.findings.map((f) => f.ruleId));
     expect(rules).toContain("js-command-injection");

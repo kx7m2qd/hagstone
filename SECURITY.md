@@ -22,8 +22,8 @@ Hagstone reads untrusted repositories, so these are the things we treat as vulne
 - Running code from a scanned repo, or letting it change what Hagstone executes
 - A scanned repo making an engine fetch something over the network (e.g. a remote Terraform module)
 - A raw secret value appearing in a finding, report, log, or anything sent off the machine
-- Source code leaving the machine (only package names/versions go to registries and osv.dev;
-  `--offline` sends nothing)
+- Source code leaving the machine (only package names/versions go to registries and osv.dev),
+  or anything about the project being sent during an `--offline` scan
 - Installing or running an engine binary that doesn't match its pinned SHA-256 (the pins themselves
   are checked against upstream Sigstore signatures / SLSA provenance in CI on every change)
 - A scanned repo hiding findings from CI in a way the report doesn't surface (including an engine's
