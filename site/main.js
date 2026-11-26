@@ -17,6 +17,22 @@
     });
   });
 
+  /* ---------- theme ---------- */
+  const themeBtn = $('#theme-btn');
+  const syncThemeBtn = () => {
+    const light = document.documentElement.dataset.theme === 'light';
+    themeBtn.setAttribute('aria-label', light ? 'Switch to dark theme' : 'Switch to light theme');
+    $('meta[name=theme-color]').content = light ? '#f3efe7' : '#0b0b0a';
+  };
+  syncThemeBtn();
+  themeBtn.addEventListener('click', () => {
+    const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem('starlight-theme', next); } catch {}
+    syncThemeBtn();
+    dispatchEvent(new Event('themechange'));
+  });
+
   if (RM || !window.gsap) {
     document.documentElement.classList.add('rm');
     document.body.classList.remove('is-loading');
@@ -60,7 +76,38 @@
     c.style.setProperty('--my', `${e.clientY - r.top}px`);
   }));
 
-  document.fonts.ready.then(init);
+  /* The stone's texture is a heavy SVG filter (noise + lighting). Render it once into a bitmap the size of
+     its biggest on-screen moment, so the zoom only moves pixels and never re-runs the filter. */
+  const bakeStone = (svg, scaleUp) => new Promise((resolve) => {
+    const defs = $('svg defs');
+    if (!svg || !defs) return resolve();
+    const px = Math.min(4096, Math.round(svg.getBoundingClientRect().width * Math.min(devicePixelRatio || 1, 2) * scaleUp));
+    if (!px) return resolve();
+    const src = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="${px}" height="${px}">${defs.outerHTML}<use href="#stone"/></svg>`;
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = c.height = px;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0, px, px);
+      // keep only the stone itself: the hole must stay truly empty (clip paths don't survive SVG-as-image)
+      const shape = $('#stoneShape');
+      if (shape && window.Path2D) {
+        ctx.globalCompositeOperation = 'destination-in';
+        ctx.setTransform(px / 400, 0, 0, px / 400, 0, 0);
+        ctx.fill(new Path2D(shape.getAttribute('d')), 'evenodd');
+      }
+      c.setAttribute('class', svg.getAttribute('class') || ''); c.setAttribute('aria-hidden', 'true');
+      svg.replaceWith(c);
+      URL.revokeObjectURL(img.src);
+      resolve();
+    };
+    img.onerror = () => resolve();
+    img.src = URL.createObjectURL(new Blob([src], { type: 'image/svg+xml' }));
+  });
+
+  Promise.all([document.fonts.ready, bakeStone($('.stone-wrap .stone'), 2.2), bakeStone($('.final-stone svg'), 1.2)]).then(init);
 
   function init() {
     const stageST = buildStage();
@@ -100,7 +147,7 @@
       .from(split.lines, { yPercent: 115, duration: 1.5, stagger: 0.12 }, 0.25)
       .from('.kicker', { opacity: 0, y: 14, duration: 1.2 }, 0.5)
       .from('.hero-foot', { opacity: 0, y: 24, duration: 1.4 }, 0.7)
-      .from('.nav', { opacity: 0, y: -20, duration: 1.2 }, 0.8)
+      .from('.nav', { opacity: 0, y: -20, duration: 1.2, clearProps: 'transform,opacity' }, 0.8)
       .from('.scroll-hint', { opacity: 0, duration: 1.2 }, 1.2)
       .add(() => gsap.to('.stone-float', { y: -7, rotation: 1.2, duration: 4.5, ease: 'sine.inOut', yoyo: true, repeat: -1 }));
     if (DEBUG_Y !== null) tl.progress(1);
@@ -108,7 +155,7 @@
 
   /* ---------- stage: zoom through the hole, then the code story ---------- */
   function buildStage() {
-    const stage = $('.stage'), veil = $('.veil'), flare = $('.flare'), wrap = $('.stone-wrap'), world = $('.world'), files = $('.files');
+    const stage = $('.stage'), veil = $('.veil'), vc = $('.veil-canvas'), flare = $('.flare'), wrap = $('.stone-wrap'), world = $('.world'), files = $('.files');
     const G = { cx: 0, cy: 0, r0: 60, rEnd: 2000 };
 
     const geom = () => {
@@ -119,10 +166,33 @@
       const far = Math.hypot(Math.max(G.cx, innerWidth - G.cx), Math.max(G.cy, innerHeight - G.cy));
       G.rEnd = far * 1.25;
       for (const el of [veil, flare]) { el.style.setProperty('--cx', `${G.cx}px`); el.style.setProperty('--cy', `${G.cy}px`); }
+      const dpr = Math.min(devicePixelRatio || 1, 2);
+      vc.width = Math.round(innerWidth * dpr); vc.height = Math.round(innerHeight * dpr);
+      G.dpr = dpr;
       gsap.set(world, { transformOrigin: `${G.cx}px ${G.cy}px` });
     };
     geom();
-    gsap.set(veil, { '--r': `${G.r0}px` });
+    // the veil: ink everywhere except a circle of radius V.r around the hole, with a feathered edge of V.f
+    const V = { r: G.r0, f: 1 };
+    const vctx = vc.getContext('2d');
+    let ink = getComputedStyle(document.documentElement).getPropertyValue('--ink').trim();
+    addEventListener('themechange', () => { ink = getComputedStyle(document.documentElement).getPropertyValue('--ink').trim(); drawVeil(); });
+    const drawVeil = () => {
+      const d = G.dpr || 1, w = vc.width, h = vc.height, cx = G.cx * d, cy = G.cy * d;
+      const outer = (V.r + 1) * d, inner = Math.max(0, (V.r - V.f) * d);
+      vctx.globalCompositeOperation = 'source-over';
+      vctx.clearRect(0, 0, w, h);
+      vctx.fillStyle = ink; vctx.fillRect(0, 0, w, h);
+      vctx.globalCompositeOperation = 'destination-out';
+      vctx.fillStyle = '#000';
+      vctx.beginPath(); vctx.arc(cx, cy, inner, 0, Math.PI * 2); vctx.fill();
+      const g = vctx.createRadialGradient(cx, cy, inner, cx, cy, outer);
+      g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      vctx.fillStyle = g;
+      vctx.beginPath(); vctx.arc(cx, cy, outer, 0, Math.PI * 2); vctx.fill();
+    };
+    drawVeil();
+    ScrollTrigger.addEventListener('refresh', drawVeil);
 
     // trace: a rail in the left gutter. Each step is a node on a card's edge, joined by rounded elbows,
     // so the line never crosses code. A glowing head rides the stroke as it draws.
@@ -163,7 +233,7 @@
     gsap.set('.rail-bg', { opacity: 0 });
     const tl = gsap.timeline({
       defaults: { ease: 'none' },
-      scrollTrigger: { trigger: stage, start: 'top top', end: () => `+=${innerHeight * 5.9}`, pin: true, scrub: 1.1, invalidateOnRefresh: true },
+      scrollTrigger: { trigger: stage, start: 'top top', end: () => `+=${innerHeight * 5.9}`, pin: true, scrub: 0.45, invalidateOnRefresh: true },
       onUpdate: moveHead,
     });
 
@@ -172,10 +242,10 @@
     // B: the stone dissolves, the hole opens like an iris with a feathered edge, light floods in
     const SA = 3.4;
     tl.to(wrap, { scale: SA, duration: 1.0, ease: 'power3.in' }, 0)
-      .to(veil, { '--r': () => `${G.r0 * SA}px`, duration: 1.0, ease: 'power3.in' }, 0)
+      .to(V, { r: () => G.r0 * SA, duration: 1.0, ease: 'power3.in', onUpdate: drawVeil }, 0)
       .to(wrap, { opacity: 0, duration: 0.3, ease: 'power1.in' }, 0.78)
-      .to(veil, { '--r': () => `${G.rEnd}px`, '--f': () => `${G.r0 * 3}px`, duration: 0.45, ease: 'power2.out' }, 1.0)
-      .set(veil, { autoAlpha: 0 }, 1.45)
+      .to(V, { r: () => G.rEnd, f: () => G.r0 * 3, duration: 0.45, ease: 'power2.out', onUpdate: drawVeil }, 1.0)
+      .set(veil, { visibility: 'hidden' }, 1.46)
       .fromTo(flare, { opacity: 0 }, { opacity: 0.55, duration: 0.25, ease: 'power2.in' }, 0.82)
       .to(flare, { opacity: 0, duration: 0.45, ease: 'power2.out' }, 1.07)
       .fromTo(world, { scale: 1.7, opacity: 0.45 }, { scale: 1, opacity: 1, duration: 1.35, ease: 'power3.out' }, 0.15)
@@ -219,7 +289,7 @@
       .fromTo('.fcard', { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }, 4.6)
       // exit: the code world steps back into the dark
       .set(world, { transformOrigin: '50% 50%' }, 5.14)
-      .to(world, { scale: 0.8, borderRadius: 32, boxShadow: '0 0 0 1px rgba(236,230,220,.14), 0 60px 120px -40px rgba(0,0,0,.9)', duration: 0.7, ease: 'power3.inOut' }, 5.15)
+      .to(world, { scale: 0.8, borderRadius: 32, boxShadow: () => document.documentElement.dataset.theme === 'light' ? '0 0 0 1px rgba(25,23,19,.12), 0 60px 120px -40px rgba(60,45,30,.35)' : '0 0 0 1px rgba(236,230,220,.14), 0 60px 120px -40px rgba(0,0,0,.9)', duration: 0.7, ease: 'power3.inOut' }, 5.15)
       .to(world, { opacity: 0, y: -40, duration: 0.45, ease: 'power2.in' }, 5.5);
     return tl.scrollTrigger;
   }
@@ -265,6 +335,8 @@
     // draw only while the pinned section (via its pin-spacer) is on screen
     new IntersectionObserver(([e]) => { active = e.isIntersecting; }).observe(sec.parentElement);
 
+    let dotColor = getComputedStyle(document.documentElement).getPropertyValue('--bone').trim();
+    addEventListener('themechange', () => { dotColor = getComputedStyle(document.documentElement).getPropertyValue('--bone').trim(); });
     const clamp = (v) => Math.max(0, Math.min(1, v));
     const ease = (t) => t * t * (3 - 2 * t);
     gsap.ticker.add((time) => {
@@ -294,7 +366,7 @@
         if (f >= 1) continue;
         alive += 1 - f;
         ctx.globalAlpha = (1 - f) * 0.5;
-        ctx.fillStyle = '#ece6dc';
+        ctx.fillStyle = dotColor;
         ctx.beginPath(); ctx.arc(x, y + f * 40, q.r, 0, 7); ctx.fill();
       }
       ctx.globalAlpha = 1;
@@ -362,7 +434,7 @@
 
     // final: the stone rises and the hole glows
     gsap.fromTo('.final-stone', { y: 120, scale: 0.8, rotation: -8 }, { y: 0, scale: 1, rotation: 0, ease: 'none', scrollTrigger: { trigger: '.final', start: 'top bottom', end: 'top 20%', scrub: 1 } });
-    gsap.to('.final-stone svg', { y: -8, duration: 4, ease: 'sine.inOut', yoyo: true, repeat: -1 });
+    gsap.to('.final-stone :is(svg, canvas)', { y: -8, duration: 4, ease: 'sine.inOut', yoyo: true, repeat: -1 });
     gsap.to('.glowhole', { scale: 1.25, opacity: 0.75, duration: 2.2, ease: 'sine.inOut', yoyo: true, repeat: -1 });
     gsap.from(['.final-sub', '.final-cta', '.final-fine'], { opacity: 0, y: 30, duration: 1.2, stagger: 0.1, ease: 'expo.out', scrollTrigger: { trigger: '.final-sub', start: 'top 90%' } });
 
