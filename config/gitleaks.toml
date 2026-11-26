@@ -4,3 +4,12 @@ title = "hagstone"
 
 [extend]
 useDefault = true
+
+# Hagstone's default ignores (src/core/ignore.ts DEFAULT_IGNORES): dependencies, build output and
+# caches. Findings there are dropped afterwards anyway; skipping them here saves most of the time.
+# Keep this list in step with DEFAULT_IGNORES (test/ignore.test.ts checks it).
+[allowlist]
+description = "hagstone default ignores"
+paths = [
+  '''(?:^|/)(?:node_modules|\.git|dist|build|vendor|\.venv|venv|__pycache__|\.hagstone|\.next|\.nuxt|\.output|\.svelte-kit|\.turbo|\.vercel|\.netlify|\.parcel-cache|\.angular|\.cache|coverage|\.nyc_output|\.pytest_cache|\.mypy_cache|\.ruff_cache|\.tox)/''',
+]

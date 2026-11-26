@@ -13,6 +13,14 @@ const DIM = "\x1b[2m";
 const BOLD = "\x1b[1m";
 const RESET = "\x1b[0m";
 
+/** Shorten to `max` characters at a word boundary, marking the cut. */
+function clip(s: string, max: number): string {
+  if (s.length <= max) return s;
+  const cut = s.slice(0, max - 1);
+  const space = cut.lastIndexOf(" ");
+  return `${(space > max * 0.6 ? cut.slice(0, space) : cut).replace(/[\s.,;:]+$/, "")}…`;
+}
+
 export function toText(result: ScanResult, opts: { color: boolean }): string {
   const c = (code: string, s: string) => (opts.color ? `${code}${s}${RESET}` : s);
   const lines: string[] = [];
@@ -36,10 +44,10 @@ export function toText(result: ScanResult, opts: { color: boolean }): string {
       const r = f.reachability;
       const tag = r.status === "reachable" ? c(COLOR.high, "reachable") : r.status === "unknown" ? "unknown" : c(DIM, r.status);
       const was = r.originalSeverity ? c(DIM, ` (was ${r.originalSeverity})`) : "";
-      lines.push(`         ${c(DIM, "reach:")} ${tag}${was}  ${c(DIM, safe(r.reason).slice(0, 200))}`);
+      lines.push(`         ${c(DIM, "reach:")} ${tag}${was}  ${c(DIM, clip(safe(r.reason), 220))}`);
     }
     if (f.resurfaced) lines.push(`         ${c(COLOR.medium, "back:")} ${safe(f.resurfaced).slice(0, 200)}`);
-    lines.push(`         ${safe(f.message).split("\n")[0]?.slice(0, 240)}`);
+    lines.push(`         ${clip(safe(f.message).split("\n")[0] ?? "", 260)}`);
     lines.push("");
   }
 
@@ -65,7 +73,9 @@ export function toText(result: ScanResult, opts: { color: boolean }): string {
     c(DIM, result.engines.map((e) => `${e.engine} ${e.ok ? `${e.findings} in ${e.ms}ms` : "FAILED"}`).join(" · ")),
   );
   if (result.hiddenInTests)
-    lines.push(c(DIM, `${result.hiddenInTests} finding${result.hiddenInTests === 1 ? "" : "s"} in test or example code not shown (--include-tests to show)`));
+    lines.push(c(DIM, `${result.hiddenInTests} finding${result.hiddenInTests === 1 ? "" : "s"} in test, example or dev-script code not shown (--include-tests to show)`));
+  if (result.hiddenGitignored)
+    lines.push(c(DIM, `${result.hiddenGitignored} finding${result.hiddenGitignored === 1 ? "" : "s"} in gitignored, untracked files not shown; they are never committed (--include-gitignored to show)`));
   const b = result.baseline;
   if (b && (b.baselined || b.suppressed)) {
     const parts = [b.baselined ? `${b.baselined} baselined` : "", b.suppressed ? `${b.suppressed} suppressed (false positive / accepted risk)` : ""].filter(Boolean);

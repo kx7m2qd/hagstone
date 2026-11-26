@@ -85,7 +85,7 @@ With `--output`, the report goes to the file and a one-line summary goes to stde
 
 To keep the list short, a default scan leaves some things out and says so:
 
-- **Test and example code:** code and dependency findings in `test/`, `__tests__/`, `examples/`, `*.spec.ts`, `test_*.py` and similar are hidden and counted. `--include-tests` shows them. Secrets and malicious packages are always shown.
+- **Test, example and dev-script code:** code and dependency findings in `test/`, `__tests__/`, `examples/`, `scripts/`, `*.spec.ts`, `test_*.py` and similar are hidden and counted. `--include-tests` shows them. Secrets and malicious packages are always shown.
 - **Infrastructure hardening advice:** counted, hidden. `--include-hardening` shows it.
 - **Baselined and suppressed findings:** once you have a [baseline](/docs/guides/existing-codebase/), only new findings show. `--no-baseline` shows everything.
 

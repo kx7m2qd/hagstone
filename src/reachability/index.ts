@@ -56,6 +56,8 @@ const PY_SOURCE = /\.py$/;
 const TOOLING =
   /^(?:Dockerfile.*|Containerfile|Procfile|Makefile|Justfile|package\.json|pyproject\.toml|setup\.cfg|tox\.ini|pytest\.ini|\.pre-commit-config\.ya?ml|.*\.(?:sh|bash|ya?ml|toml|ini|cfg|conf)|\.[\w-]+rc(?:\.(?:json|ya?ml|[cm]?js))?|.*\.config\.[cm]?[jt]s)$/;
 const NOT_TOOLING = /^(?:pnpm-lock\.yaml|yarn\.lock|bun\.lock|poetry\.lock|uv\.lock|Pipfile\.lock)$/;
+/** Manifests and lockfiles whose graph and declarations reachability reads. */
+const MANIFEST = /^(?:package\.json|package-lock\.json|yarn\.lock|bun\.lock|pyproject\.toml|poetry\.lock|uv\.lock)$/;
 const REQUIREMENTS = /^requirements.*\.txt$|^(?:dev|test)-requirements.*\.txt$/;
 /** Requirements files for tooling, not the running app. */
 const DEV_REQUIREMENTS = /^requirements[-_.]?(?:dev|test|tests|lint|docs|ci|build)\b.*\.txt$|^(?:dev|test)-requirements.*\.txt$/;
@@ -282,13 +284,24 @@ async function analyze(root: string, dir: string, ignores: string[]): Promise<Pr
     graphs: new Map(),
     uses: new Map(),
   };
+  // The project's own manifests and lockfiles are read directly: a walk cut short by the file cap
+  // (a large build or cache folder listed first) must not lose the dependency graph.
+  try {
+    for (const e of await readdir(join(root, dir), { withFileTypes: true })) {
+      if (!e.isFile() || !(REQUIREMENTS.test(e.name) || MANIFEST.test(e.name))) continue;
+      const rel = dir ? `${dir}/${e.name}` : e.name;
+      if (isIgnored(rel, ignores)) continue;
+      const text = await readSmall(root, rel);
+      if (text !== undefined) p.manifests.set(e.name, text);
+    }
+  } catch {
+    // An unreadable directory leaves only what the walk found.
+  }
   const ast = await pythonAstImports(files.filter((f) => PY_SOURCE.test(f)).map((f) => join(root, f)));
 
   for (const path of files) {
     const base = baseOf(path);
-    if (dirOf(path) === dir && (REQUIREMENTS.test(base) || /^(?:package\.json|package-lock\.json|yarn\.lock|bun\.lock|pyproject\.toml|poetry\.lock|uv\.lock)$/.test(base))) {
-      const text = await readSmall(root, path);
-      if (text !== undefined) p.manifests.set(base, text);
+    if (dirOf(path) === dir && (REQUIREMENTS.test(base) || MANIFEST.test(base))) {
       if (REQUIREMENTS.test(base) || base.endsWith(".lock") || base === "package-lock.json") continue;
     }
     if (JS_SOURCE.test(base) && !/\.min\.js$/.test(base) && !base.endsWith(".d.ts")) {

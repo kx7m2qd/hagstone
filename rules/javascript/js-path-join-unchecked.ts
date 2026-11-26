@@ -69,3 +69,24 @@ export const download = (req: any, res: any) => {
   const file = path.join('/srv/uploads', req.query.name);
   res.sendFile(file);
 };
+
+const ORDER_ID = /^BB[0-9A-Z]{14}$/;
+export function readOrder(dir: string, id: string) {
+  if (!ORDER_ID.test(id)) return undefined;
+  // ok: js-path-join-unchecked
+  return fs.readFileSync(path.join(dir, `${id}.json`), 'utf8');
+}
+
+export function readSlug(dir: string, slug: string) {
+  if (!/^[a-z0-9-]+$/.test(slug)) {
+    throw new Error('bad slug');
+  }
+  // ok: js-path-join-unchecked
+  return fs.readFileSync(path.join(dir, slug));
+}
+
+export function readAfterUnrelatedCheck(dir: string, name: string) {
+  if (name.length > 100) return undefined;
+  // ruleid: js-path-join-unchecked
+  return fs.readFileSync(path.join(dir, name));
+}

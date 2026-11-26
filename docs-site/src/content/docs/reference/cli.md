@@ -41,7 +41,8 @@ Scans a directory (default `.`) for code, dependency, secret, supply-chain, IaC 
 | `--no-reachability` | | Skip the reachability check for npm and PyPI dependencies. |
 | `--trust-reachability` | | Let `--fail-on` use the lowered severity of unreachable and dev-only dependencies. |
 | `--reachable-only` | | Hide unreachable dependency findings. Implies `--trust-reachability`. |
-| `--include-tests` | | Also report code and dependency findings in test and example code. |
+| `--include-tests` | | Also report code and dependency findings in test, example and dev-script code (`scripts/`, `tools/`). |
+| `--include-gitignored` | | Also report findings in files git ignores and doesn't track (`.env.local`, build output). |
 | `--include-hardening` | | Also report IaC hardening checks. |
 | `--no-baseline` | | Ignore the baseline: report and gate on every finding. |
 

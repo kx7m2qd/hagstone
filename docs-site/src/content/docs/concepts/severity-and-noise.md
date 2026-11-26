@@ -35,11 +35,12 @@ Each of these is counted in the report, so nothing disappears silently.
 
 A vulnerable npm or PyPI package that nothing imports, or only tests and dev tooling import, is shown one severity level lower. The gate still uses the **original** severity, unless you pass `--trust-reachability`. [Reachability](/docs/guides/dependencies/#reachability) explains how it's worked out.
 
-### Test and example code
+### Test, example and dev-script code
 
-Code and dependency findings in test and example code are hidden. A path counts as test or example code when:
+Code and dependency findings in test, example and dev-script code are hidden and counted. A path counts as one of these when:
 
 - a folder in it is named like `test`, `tests`, `__tests__`, `spec`, `e2e`, `fixtures`, `mocks`, `testdata`, `examples`, `samples`, `demo` or `playground`;
+- it's in a top-level `scripts/` or `tools/` folder, or one at a monorepo package's root (`packages/web/scripts/`), which hold build and maintenance scripts rather than the app;
 - or the file is named like `*.test.ts`, `*.spec.js`, `*.stories.tsx`, `test_*.py`, `*_test.py`, `conftest.py`, `UserServiceTest.java` or `OrderIT.java`.
 
 **Secrets and malicious packages are always shown**, wherever they are: a key in a test file is still a leaked key. `--include-tests` shows everything.

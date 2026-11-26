@@ -62,7 +62,8 @@ The complete scan result. Use it for scripts, dashboards and custom gates.
 | `ignores` | string[] | Patterns from the repository's own `.hagstoneignore`. Shown because a change to them can hide findings. |
 | `warnings` | string[] | Things you should know: hidden counts, skipped files, unverified binaries, registry errors. |
 | `engines` | object[] | Per engine: `engine`, `ok`, `findings`, `ms`, and `error` when `ok` is `false`. |
-| `hiddenInTests` | number | Findings hidden because they're in test or example code. |
+| `hiddenInTests` | number | Findings hidden because they're in test, example or dev-script code. |
+| `hiddenGitignored` | number? | Findings left out because git ignores their file and doesn't track it. Present when non-zero. |
 | `suppressed` | Finding[] | Present with a baseline: findings it hid, each with `suppression`. |
 | `baseline` | object | Present with a baseline: `file`, `baselined`, `suppressed`, `resurfaced`, and `stale` entries after a complete scan. |
 
@@ -84,7 +85,7 @@ The complete scan result. Use it for scripts, dashboards and custom gates.
 | `dependency` | object? | `name`, `version`, `ecosystem`, `advisories` (ids), `fixedVersions`. |
 | `reachability` | object? | npm and PyPI vulnerable dependencies: `status` (`reachable`, `dev-only`, `unreachable`, `unknown`), `reason`, optional `evidence` (`path`, `line`) and `originalSeverity` if it was lowered. |
 | `dataflow` | object[]? | Taint findings: each step from source to sink, with `path`, `line` and `snippet`. |
-| `scope` | string? | `test` or `example` when the file is test or example code (only visible with `--include-tests`). |
+| `scope` | string? | `test`, `example` or `tooling` (dev scripts) when the file isn't shipped code (only visible with `--include-tests`). |
 | `suppression` | object? | In `suppressed` only: `kind`, `reason`, `date`, `expires`. |
 | `resurfaced` | string? | Why a baselined finding is reported again. |
 

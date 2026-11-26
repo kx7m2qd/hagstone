@@ -49,3 +49,10 @@ rules:
               $R = path.$M(...);
               ...
               $REL = path.relative($ROOT, $R);
+          # An allowlist check on the value before it is joined (`if (!ID.test(id)) return;`).
+          - pattern-not-inside: |
+              if (!$RE.test(...)) $S;
+              ...
+          - pattern-not-inside: |
+              if (!$RE.test(...)) { ... }
+              ...

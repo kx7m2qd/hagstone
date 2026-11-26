@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join, relative, resolve, sep } from "node:path";
 import { applyBaseline, BASELINE_FILE, defaultBaselinePath, loadBaseline, today, type BaselineSummary } from "./core/baseline.js";
 import { dedupe, sortFindings, type EngineName, type Finding } from "./core/finding.js";
-import { DEFAULT_IGNORES, isIgnored, loadIgnorePatterns } from "./core/ignore.js";
+import { DEFAULT_IGNORES, gitIgnoredPatterns, isIgnored, loadIgnorePatterns } from "./core/ignore.js";
 import { pathScope } from "./core/scope.js";
 import { runGitleaks } from "./engines/gitleaks.js";
 import { runImageScan } from "./engines/grype.js";
@@ -31,6 +31,8 @@ export interface ScanOptions {
   ignoreFile?: string;
   /** Report code and dependency findings in test and example paths too (default: hidden and counted). */
   includeTests?: boolean;
+  /** Also report findings in files git ignores and doesn't track (default: skipped and counted). */
+  includeGitignored?: boolean;
   /**
    * License policy to apply instead of `<root>/.hagstone/licenses.json` (missing or empty file →
    * defaults only). CI passes the base branch's copy so a PR can't allow the license it adds.
@@ -69,6 +71,8 @@ export interface ScanResult {
   engines: EngineStatus[];
   /** Findings left out because they are in test or example code (see `includeTests`). */
   hiddenInTests?: number;
+  /** Findings left out because git ignores their file and doesn't track it (see `includeGitignored`). */
+  hiddenGitignored?: number;
   /** Findings a baseline entry hides, each with `suppression` set. Not in `findings`, not gated. */
   suppressed?: Finding[];
   /** Present when a baseline file was applied. */
@@ -89,6 +93,10 @@ export function hiddenByScope(f: Finding): boolean {
 export async function scan(target: string, opts: ScanOptions = {}): Promise<ScanResult> {
   const root = resolve(target);
   const ignores = await loadIgnorePatterns(root, opts.ignoreFile);
+  // Untracked, gitignored files (.env.local, build output) are never committed. They are dropped from
+  // the results and from reachability's file walk; engines still get only `ignores`, whose meaning
+  // they understand.
+  const gitIgnored = opts.includeGitignored ? [] : await gitIgnoredPatterns(root);
   const engines = opts.engines ?? ALL_ENGINES;
   const autoInstall = opts.autoInstall ?? true;
 
@@ -135,13 +143,16 @@ export async function scan(target: string, opts: ScanOptions = {}): Promise<Scan
   }
   if (license?.error) warnings.push(`license policy ${relative(root, policyPath) || policyPath} not applied (${license.error}); using the defaults`);
   const statuses: EngineStatus[] = [];
+  let hiddenGitignored = 0;
   for (const o of outcomes) {
     if ("error" in o) {
       statuses.push({ engine: o.engine, ok: false, findings: 0, ms: o.ms, error: o.error });
       warnings.push(`${o.engine} failed: ${o.error}`);
       continue;
     }
-    const kept = o.out.findings.filter((f) => !isIgnored(f.location.path, ignores));
+    const notIgnored = o.out.findings.filter((f) => !isIgnored(f.location.path, ignores));
+    const kept = gitIgnored.length ? notIgnored.filter((f) => !isIgnored(f.location.path, gitIgnored)) : notIgnored;
+    hiddenGitignored += notIgnored.length - kept.length;
     findings.push(...kept);
     warnings.push(...o.out.warnings);
     statuses.push({ engine: o.engine, ok: true, findings: kept.length, ms: o.ms });
@@ -158,7 +169,7 @@ export async function scan(target: string, opts: ScanOptions = {}): Promise<Scan
   kept = visible;
   if (opts.reachability ?? true) {
     try {
-      await applyReachability(root, kept, ignores);
+      await applyReachability(root, kept, [...ignores, ...gitIgnored]);
     } catch (e) {
       // Reachability only refines findings; a failure must never drop or block them.
       warnings.push(`reachability analysis failed: ${e instanceof Error ? e.message : String(e)}`);
@@ -204,6 +215,7 @@ export async function scan(target: string, opts: ScanOptions = {}): Promise<Scan
     warnings,
     engines: statuses,
     hiddenInTests,
+    ...(hiddenGitignored ? { hiddenGitignored } : {}),
     ...(suppressed ? { suppressed } : {}),
     ...(baseline ? { baseline } : {}),
   };

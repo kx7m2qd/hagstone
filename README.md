@@ -84,8 +84,9 @@ can't be suppressed. There are no inline "ignore" comments: decisions live in on
 `--no-baseline` shows everything.
 
 Skip paths with a `.hagstoneignore` file at the scan root: one entry per line, either a path prefix
-(`test/fixtures/`) or a bare name that matches at any depth (`fixtures`). `node_modules/`, `dist/`,
-`vendor/` and similar directories are always skipped.
+(`test/fixtures/`) or a bare name that matches at any depth (`fixtures`). Dependencies, build output
+and caches (`node_modules/`, `dist/`, `.next/`, `.cache/`, ...) are always skipped, and so are
+gitignored files git doesn't track (`.env.local`); `--include-gitignored` scans those too.
 
 ## GitHub Action
 
