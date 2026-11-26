@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hagstone — See your code as it really is</title>
+<meta name="description" content="Local-first application security. One command runs code, dependency, secret, supply-chain, IaC, license and container checks on your machine. Your source code never leaves.">
+<meta name="theme-color" content="#0b0b0a">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap">
+<link rel="stylesheet" href="vendor/lenis.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="is-loading">
+
+<!-- shared stone definitions -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <radialGradient id="stoneBody" cx="38%" cy="30%" r="78%">
+      <stop offset="0" stop-color="#8d877d"/>
+      <stop offset=".45" stop-color="#5b564e"/>
+      <stop offset="1" stop-color="#211f1b"/>
+    </radialGradient>
+    <radialGradient id="holeShade" cx="58%" cy="60%" r="60%">
+      <stop offset=".55" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity=".85"/>
+    </radialGradient>
+    <filter id="rock" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.022" numOctaves="6" seed="11" result="noise"/>
+      <feDiffuseLighting in="noise" surfaceScale="4.2" lighting-color="#efe8dc" result="light">
+        <feDistantLight azimuth="225" elevation="42"/>
+      </feDiffuseLighting>
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3" result="grit"/>
+      <feColorMatrix in="grit" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -2.4 1.35" result="speck"/>
+      <feComposite in="light" in2="SourceGraphic" operator="arithmetic" k1="1.15" k2="0" k3="0" k4="0" result="lit"/>
+      <feComposite in="speck" in2="lit" operator="atop" result="specked"/>
+      <feComposite in="specked" in2="SourceAlpha" operator="in"/>
+    </filter>
+    <path id="stoneShape" fill-rule="evenodd" d="M214 18c64 4 118 34 148 86 26 46 30 104 14 156-17 56-58 102-116 120-52 17-118 12-164-18C48 332 18 278 20 214 22 150 44 96 86 58 120 28 166 15 214 18Zm4 132c-26-2-46 14-50 38-3 24 14 44 40 47 27 3 49-13 51-38 2-25-16-45-41-47Z"/>
+    <g id="stone">
+      <use href="#stoneShape" fill="url(#stoneBody)" filter="url(#rock)"/>
+      <ellipse cx="212" cy="187" rx="56" ry="51" fill="url(#holeShade)" clip-path="url(#holeClip)"/>
+      <path d="M168 188c4-24 24-40 50-38" fill="none" stroke="#000" stroke-opacity=".55" stroke-width="5" stroke-linecap="round"/>
+      <path d="M259 197c-2 25-24 41-51 38" fill="none" stroke="#f3ece1" stroke-opacity=".12" stroke-width="1.5" stroke-linecap="round"/>
+    </g>
+    <clipPath id="holeClip"><use href="#stoneShape"/></clipPath>
+  </defs>
+</svg>
+
+<div class="grain" aria-hidden="true"></div>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav" id="nav">
+  <a class="brand" href="#top" aria-label="Hagstone, back to top">
+    <svg viewBox="0 0 400 400" aria-hidden="true"><use href="#stoneShape" fill="currentColor"/></svg>
+    <span>Hagstone</span>
+  </a>
+  <nav class="links" aria-label="Primary">
+    <a href="#story">How it sees</a>
+    <a href="#checks">Checks</a>
+    <a href="#proof">Proof</a>
+    <a href="#dashboard">Dashboard</a>
+    <a href="#faq">FAQ</a>
+    <a href="/docs/">Docs</a>
+  </nav>
+  <div class="nav-end">
+    <a class="nav-gh" href="https://github.com/kx7m2qd/hagstone">GitHub</a>
+    <a class="pill magnetic" href="#start"><span>Get started</span></a>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- ============ STAGE: hero → through the hole → code story ============ -->
+<section class="stage" id="top">
+  <div class="stage-pin">
+
+    <div class="world" id="story">
+      <div class="captions">
+        <p class="cap-eyebrow"><i></i>How Hagstone sees</p>
+        <div class="cap" data-step="1"><span class="cap-n">01 / 04</span><h2>Untrusted input <em>gets in.</em></h2><p>An order id arrives from the request. Hagstone marks it as tainted where it enters.</p></div>
+        <div class="cap" data-step="2"><span class="cap-n">02 / 04</span><h2>It crosses <em>files.</em></h2><p>The id passes through a service into a repository in another class. Most scanners stop at the file boundary. Hagstone keeps following.</p></div>
+        <div class="cap" data-step="3"><span class="cap-n">03 / 04</span><h2>It reaches <em>the query.</em></h2><p>Concatenated straight into SQL. That's CWE-89: anyone can read every order in the table.</p></div>
+        <div class="cap" data-step="4"><span class="cap-n">04 / 04</span><h2>You get <em>the fix.</em></h2><p>What's wrong, why it matters and the exact change. In your terminal, your pull request, or your coding agent.</p></div>
+      </div>
+
+      <div class="files" aria-label="Example: a SQL injection traced across three files">
+        <div class="file f1">
+          <div class="file-tab"><span class="dot"></span>OrderController.java</div>
+<pre><code><span class="l"><b>21</b><span class="a">@GetMapping</span>(<span class="s">"/orders"</span>)</span>
+<span class="l"><b>22</b><span class="k">public</span> <span class="t">Order</span> get(<span class="t">HttpServletRequest</span> req) {</span>
+<span class="l hl-src"><b>23</b>  <span class="t">String</span> id = <span class="mark m-src">req.getParameter(<span class="s">"id"</span>)</span>;</span>
+<span class="l"><b>24</b>  <span class="k">return</span> service.find(id);</span>
+<span class="l"><b>25</b>}</span></code></pre>
+          <span class="tagline t-src">source</span>
+        </div>
+        <div class="file f2">
+          <div class="file-tab"><span class="dot"></span>OrderService.java</div>
+<pre><code><span class="l"><b>12</b><span class="k">public</span> <span class="t">Order</span> find(<span class="t">String</span> id) {</span>
+<span class="l"><b>13</b>  log.info(<span class="s">"lookup {}"</span>, id);</span>
+<span class="l hl-pass"><b>14</b>  <span class="k">return</span> <span class="mark m-pass">repo.findById(id)</span>;</span>
+<span class="l"><b>15</b>}</span></code></pre>
+          <span class="tagline t-pass">passes through</span>
+        </div>
+        <div class="file f3">
+          <div class="file-tab"><span class="dot"></span>OrderRepository.java</div>
+<pre><code><span class="l"><b>16</b><span class="k">public</span> <span class="t">Order</span> findById(<span class="t">String</span> id) {</span>
+<span class="l bad hl-sink"><b>17</b>  <span class="t">String</span> sql = <span class="mark m-sink"><span class="s">"SELECT * FROM orders WHERE id = "</span> + id</span>;</span>
+<span class="l bad"><b>18</b>  <span class="k">return</span> jdbc.queryForObject(sql, mapper);</span>
+<span class="l good"><b>17</b>  <span class="t">String</span> sql = <span class="s">"SELECT * FROM orders WHERE id = ?"</span>;</span>
+<span class="l good"><b>18</b>  <span class="k">return</span> jdbc.queryForObject(sql, mapper, id);</span>
+<span class="l"><b>19</b>}</span></code></pre>
+          <span class="tagline t-sink">sink</span>
+        </div>
+        <svg class="trace" aria-hidden="true"><path class="rail-bg"/><path class="seg s1"/><path class="seg s2"/><circle class="node n1" r="4.5"/><circle class="node n2" r="4.5"/><circle class="node n3" r="4.5"/><circle class="head" r="3.5"/></svg>
+        <div class="fcard">
+          <div class="fcard-top"><span class="sev">High</span><code>java-sqli-jdbc</code><span class="chip">CWE-89</span><span class="chip">A03:2021</span><span class="status">Fixed</span></div>
+          <p><b>SQL injection.</b> Request input reaches a JDBC query through 2 files. Use a <code>?</code> placeholder and pass <code>id</code> as a parameter.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="veil" aria-hidden="true"></div>
+    <div class="flare" aria-hidden="true"></div>
+
+    <div class="stone-wrap" aria-hidden="true">
+      <div class="stone-float">
+        <svg class="stone" viewBox="0 0 400 400"><use href="#stone"/></svg>
+        <span class="hole-anchor"></span>
+      </div>
+    </div>
+
+    <div class="hero-copy">
+      <p class="kicker"><i></i>Local-first application security</p>
+      <h1 class="hero-title"><span class="line">See your code</span><span class="line"><em>as it really is.</em></span></h1>
+      <div class="hero-foot">
+        <p class="lead">One command checks your code, dependencies, secrets, supply chain, infrastructure and containers, on your own machine. Your source code never leaves it.</p>
+        <div class="hero-cta">
+          <button class="install magnetic" data-copy="npx hagstone scan ." aria-label="Copy: npx hagstone scan ."><span class="p">$</span><code>npx hagstone scan .</code><span class="cp">Copy</span></button>
+        </div>
+      </div>
+    </div>
+    <div class="scroll-hint" aria-hidden="true"><span>Scroll to look through</span><i></i></div>
+  </div>
+</section>
+
+<!-- ============ STATEMENT ============ -->
+<section class="statement">
+  <p class="statement-text" data-words>Your source code never leaves your machine. <em>Not to us. Not to anyone.</em> Scans run where your code already lives: your laptop, your CI runner, your air-gapped network. Only findings come out.</p>
+</section>
+
+<!-- ============ NOISE ============ -->
+<section class="noise" id="noise">
+  <div class="noise-pin">
+    <canvas class="noise-canvas" aria-hidden="true"></canvas>
+    <div class="noise-copy">
+      <p class="eyebrow">Signal, not noise</p>
+      <h2 data-split>Most scanners hand you a <em>haystack.</em></h2>
+      <div class="counter"><span class="num" id="noiseNum">640</span><span class="unit">findings to review</span></div>
+      <ul class="filters">
+        <li data-f="1"><i></i>Not reachable from your code</li>
+        <li data-f="2"><i></i>Only in tests and dev tooling</li>
+        <li data-f="3"><i></i>Already decided in your baseline</li>
+        <li data-f="4"><i></i>Hardening advice, not exposure</li>
+      </ul>
+      <p class="noise-note">Illustration. Hagstone lowers or hides each of these, and tells you how many it set aside.</p>
+    </div>
+    <div class="real-panel">
+      <div class="real-head"><span>What's left</span><b>5 that matter</b></div>
+      <ol class="real" aria-label="What's left">
+        <li><i class="bar crit"></i><span class="sev">Crit</span><div class="rt"><b>AWS access key</b><code>config/deploy.env:4</code></div><em>Secrets</em></li>
+        <li><i class="bar"></i><span class="sev">High</span><div class="rt"><b>SQL injection</b><code>OrderRepository.java:17</code></div><em>Code</em></li>
+        <li><i class="bar"></i><span class="sev">High</span><div class="rt"><b>Reachable lodash 4.17.20</b><code>imported in 6 files</code></div><em>Dependencies</em></li>
+        <li><i class="bar"></i><span class="sev">High</span><div class="rt"><b>S3 bucket is public</b><code>infra/storage.tf:22</code></div><em>Infrastructure</em></li>
+        <li><i class="bar med"></i><span class="sev med">Med</span><div class="rt"><b>Route without auth</b><code>server.js:48</code></div><em>Code</em></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CHECKS (horizontal) ============ -->
+<section class="checks" id="checks">
+  <div class="checks-pin">
+    <div class="checks-track">
+      <article class="check intro">
+        <p class="eyebrow">Everything, in one command</p>
+        <h2>Six kinds of risk.<br><em>One list.</em></h2>
+        <p>Every engine's output becomes the same finding, so the report, the baseline and the CI gate work the same way for all of them.</p>
+        <p class="drag">Keep scrolling <span>→</span></p>
+      </article>
+      <article class="check">
+        <div class="check-head"><span class="idx">01</span><span class="eng">Opengrep · JS/TS · Python · Java</span></div>
+        <h3>Code that trusts <em>the wrong input.</em></h3>
+        <p>Taint-aware rules follow data from the request to the query, the shell or the file system, across files in Java. Every rule ships with tests and maps to a CWE and OWASP category.</p>
+        <div class="rows"><div><span class="sev">High</span>Command injection<em>app/tasks.py:31</em></div><div><span class="sev">High</span>SQL injection<em>OrderRepository.java:17</em></div><div><span class="sev med">Med</span>Reflected XSS<em>routes/search.ts:12</em></div></div>
+      </article>
+      <article class="check">
+        <div class="check-head"><span class="idx">02</span><span class="eng">OSV-Scanner · reachability</span></div>
+        <h3>Dependencies, ranked by <em>what you actually use.</em></h3>
+        <p>A vulnerable package nothing imports is lowered, not hidden. One finding per package to upgrade, not one per advisory.</p>
+        <div class="rows"><div><span class="sev">High</span>lodash 4.17.20 → 4.17.21<em>imported in 6 files</em></div><div class="dim"><span class="sev low">Low</span>minimist 1.2.5 → 1.2.6<em>not imported</em></div></div>
+      </article>
+      <article class="check">
+        <div class="check-head"><span class="idx">03</span><span class="eng">Gitleaks · redacted</span></div>
+        <h3>Leaked keys, <em>never printed.</em></h3>
+        <p>Secret values are removed from every report, log and SARIF file. A pre-commit hook stops them before they reach history.</p>
+        <div class="rows"><div><span class="sev">Crit</span>AKIA••••••••••••Q7XA<em>config/deploy.env:4</em></div><div><span class="sev">High</span>sk_live_••••••••••••<em>scripts/seed.js:11</em></div></div>
+      </article>
+      <article class="check">
+        <div class="check-head"><span class="idx">04</span><span class="eng">npm · PyPI</span></div>
+        <h3>The package that <em>only looks right.</em></h3>
+        <p>Typosquats, install scripts that run on <code>npm install</code>, and known-malicious packages, which can never be suppressed.</p>
+        <div class="rows"><div><span class="sev">High</span>"reqeusts" looks like "requests"<em>requirements.txt:3</em></div><div><span class="sev med">Med</span>postinstall downloads a binary<em>package.json</em></div></div>
+      </article>
+      <article class="check">
+        <div class="check-head"><span class="idx">05</span><span class="eng">Trivy · Terraform · K8s · Helm · more</span></div>
+        <h3>Infrastructure that's <em>exposed,</em> not untidy.</h3>
+        <p>A public bucket, SSH open to the internet, a privileged container. Hardening checks are counted and kept out of the way until you ask.</p>
+        <div class="rows"><div><span class="sev">High</span>S3 bucket is public<em>infra/storage.tf:22</em></div><div><span class="sev">High</span>SSH open to 0.0.0.0/0<em>infra/network.tf:41</em></div></div>
+      </article>
+      <article class="check">
+        <div class="check-head"><span class="idx">06</span><span class="eng">Syft · Grype · CycloneDX · SPDX</span></div>
+        <h3>One fix per package <em>in your image.</em></h3>
+        <p>Not one alert per CVE per binary. Plus an SBOM in one command and a license policy you control.</p>
+        <div class="rows"><div><span class="sev">High</span>openssl (libcrypto3, libssl3)<em>upgrade 3.3.2-r1</em></div><div><span class="sev med">Med</span>AGPL-3.0 dependency<em>package-lock.json</em></div></div>
+      </article>
+    </div>
+    <div class="checks-progress"><i></i></div>
+  </div>
+</section>
+
+<!-- ============ PROOF ============ -->
+<section class="proof" id="proof">
+  <div class="wrap">
+    <p class="eyebrow">Proof</p>
+    <h2 data-split>Accuracy you can check, <em>not take on trust.</em></h2>
+    <div class="stats">
+      <div class="stat"><b data-count="51" data-suffix="/51">51/51</b><span>CWE Top 25 coverage. 17 weaknesses across JS/TS, Python and Java.</span></div>
+      <div class="stat"><b data-count="1" data-dec="2">1.00</b><span>Precision on our labelled benchmark. Every change is gated on it.</span></div>
+      <div class="stat"><b data-count="0.991" data-dec="3">0.991</b><span>Recall on the same benchmark. If it drops, the build fails.</span></div>
+      <div class="stat"><b data-count="0" data-suffix="">0</b><span>Bytes of source code sent anywhere. Only package names and versions go out, and <code>--offline</code> sends nothing.</span></div>
+    </div>
+    <p class="proof-note">OWASP Benchmark gates for Python and Java also run in CI. Engine binaries are pinned by version and SHA-256 and checked on every run.</p>
+  </div>
+</section>
+
+<!-- ============ WORKFLOW ============ -->
+<section class="flow-sec">
+  <div class="wrap">
+    <p class="eyebrow">Where you work</p>
+    <h2 data-split>It lives in your terminal, <em>your PRs and your agents.</em></h2>
+    <div class="flows">
+      <article class="flowcard">
+        <span class="fl-k">Terminal</span>
+        <h3>One command, exit codes CI understands.</h3>
+<pre><span class="d">$</span> npx hagstone scan .
+<span class="d">$</span> hagstone baseline create
+<span class="d">$</span> hagstone hook install</pre>
+      </article>
+      <article class="flowcard">
+        <span class="fl-k">Pull requests</span>
+        <h3>Inline comments on the lines a PR adds.</h3>
+        <div class="prc">
+          <div class="prc-line"><b>+</b> <code>db.query(`SELECT … ${req.query.q}`)</code></div>
+          <div class="prc-cmt"><span class="av"></span><div><b>hagstone</b> <span class="sev">High</span><p>SQL injection: request input reaches <code>db.query</code>. Use a parameterized query.</p></div></div>
+        </div>
+      </article>
+      <article class="flowcard">
+        <span class="fl-k">Coding agents</span>
+        <h3>Your agent checks its own work.</h3>
+<pre><span class="d">$</span> claude mcp add hagstone -- \
+    npx -y hagstone mcp
+<span class="d">tools:</span> scan · explain · check_package</pre>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ DASHBOARD ============ -->
+<section class="dash-sec" id="dashboard">
+  <div class="wrap">
+    <p class="eyebrow">Coming next</p>
+    <h2 data-split>A dashboard <em>you host yourself.</em></h2>
+    <p class="sec-lead">Owners, SLAs and compliance reports for security teams. It receives findings only, never source code, so it can run inside your own network.</p>
+  </div>
+  <div class="dash-persp">
+    <div class="dash">
+      <div class="dash-bar"><i></i><i></i><i></i><span>hagstone · all projects</span><em>Preview · sample data</em></div>
+      <div class="dash-body">
+        <aside><b>Overview</b><span>Projects</span><span>Findings</span><span>SLAs</span><span>Reports</span></aside>
+        <div class="dash-main">
+          <div class="tiles">
+            <div><span>Open high and above</span><b>12</b><em class="good">−8 this week</em></div>
+            <div><span>Past SLA</span><b>3</b><em class="bad">+1</em></div>
+            <div><span>Median time to fix</span><b>2.4d</b><em class="good">−0.6d</em></div>
+            <div><span>Projects passing</span><b>19<small>/27</small></b><em>gate: high</em></div>
+          </div>
+          <div class="chart">
+            <span>Open high and critical findings · 12 weeks</span>
+            <svg viewBox="0 0 600 120" preserveAspectRatio="none" aria-hidden="true">
+              <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ece6dc" stop-opacity=".18"/><stop offset="1" stop-color="#ece6dc" stop-opacity="0"/></linearGradient></defs>
+              <path class="area" d="M0 24 L50 30 L100 22 L150 38 L200 46 L250 44 L300 60 L350 66 L400 78 L450 82 L500 90 L550 96 L600 100 L600 120 L0 120Z" fill="url(#cg)"/>
+              <path class="line" d="M0 24 L50 30 L100 22 L150 38 L200 46 L250 44 L300 60 L350 66 L400 78 L450 82 L500 90 L550 96 L600 100" fill="none" stroke="#ece6dc" stroke-width="1.5"/>
+            </svg>
+          </div>
+          <div class="owners">
+            <div><b>payments-api</b><span>team-payments</span><i style="--w:72%"></i><em class="bad">2 past SLA</em></div>
+            <div><b>orders-service</b><span>team-core</span><i style="--w:40%"></i><em>on track</em></div>
+            <div><b>web-checkout</b><span>team-web</span><i style="--w:18%"></i><em>on track</em></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section class="faq-sec" id="faq">
+  <div class="wrap faq-grid">
+    <div>
+      <p class="eyebrow">FAQ</p>
+      <h2 data-split>Questions, <em>answered plainly.</em></h2>
+    </div>
+    <div class="faq">
+      <details><summary>Does my source code leave my machine?<i></i></summary><div class="ans"><p>No. Every engine runs locally or in your own CI runner. To look up vulnerabilities and package risk, Hagstone sends package names and versions to osv.dev, npm and PyPI, and nothing else. With <code>--offline</code> it sends nothing at all.</p></div></details>
+      <details><summary>Is it really free?<i></i></summary><div class="ans"><p>Yes. The scanner is open source under Apache-2.0, with every engine included and no per-user pricing.</p></div></details>
+      <details><summary>Which languages and formats are covered?<i></i></summary><div class="ans"><p>Code: JavaScript/TypeScript, Python and Java. Dependencies: the ecosystems OSV-Scanner supports. Infrastructure: Terraform, Kubernetes, Dockerfile, Helm, CloudFormation, ARM and Ansible. Plus container images, SBOMs and licenses.</p></div></details>
+      <details><summary>How do I adopt it on a large codebase?<i></i></summary><div class="ans"><p>Run <code>hagstone baseline create</code> and commit the file. From then on you only see new findings, or old ones that got worse.</p></div></details>
+      <details><summary>Can it run in an air-gapped network?<i></i></summary><div class="ans"><p>Yes. Download the engines and the vulnerability databases once with <code>hagstone engines install</code> and <code>hagstone offline-db</code>, copy the cache across, and scan with <code>--offline</code>. Nothing is sent anywhere.</p></div></details>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FINAL ============ -->
+<section class="final" id="start">
+  <div class="final-stone" aria-hidden="true">
+    <div class="glowhole"></div>
+    <svg viewBox="0 0 400 400"><use href="#stone"/></svg>
+  </div>
+  <h2 data-split>Look through <em>the stone.</em></h2>
+  <p class="final-sub">One command. Six kinds of risk. Nothing uploaded.</p>
+  <div class="final-cta">
+    <button class="install magnetic" data-copy="npx hagstone scan ." aria-label="Copy: npx hagstone scan ."><span class="p">$</span><code>npx hagstone scan .</code><span class="cp">Copy</span></button>
+    <a class="ghost magnetic" href="https://github.com/kx7m2qd/hagstone"><span>View on GitHub</span></a>
+  </div>
+  <p class="final-fine">Node.js 22+ · Linux x64 and macOS arm64 · Apache-2.0</p>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="foot-cols">
+    <div><h4>Product</h4><a href="#checks">Checks</a><a href="#proof">Benchmarks</a><a href="#dashboard">Dashboard</a></div>
+    <div><h4>Developers</h4><a href="https://github.com/kx7m2qd/hagstone">GitHub</a><a href="/docs/">Documentation</a><a href="/docs/guides/github-action/">GitHub Action</a><a href="/docs/reference/rules/">Rule catalogue</a><a href="https://www.npmjs.com/package/hagstone">npm</a></div>
+    <div><h4>Trust</h4><a href="https://github.com/kx7m2qd/hagstone/blob/main/SECURITY.md">Security policy</a><a href="https://github.com/kx7m2qd/hagstone/blob/main/LICENSE">Apache-2.0</a></div>
+    <p class="foot-tag">Named after the stone with a hole that, in folklore, lets you see things as they really are.</p>
+  </div>
+  <div class="wordmark" aria-hidden="true">Hagstone</div>
+  <div class="foot-base"><span>© 2026 Hagstone</span><span>Open source · Apache-2.0</span></div>
+</footer>
+
+<script src="vendor/lenis.min.js"></script>
+<script src="vendor/gsap.min.js"></script>
+<script src="vendor/ScrollTrigger.min.js"></script>
+<script src="vendor/SplitText.min.js"></script>
+<script src="main.js"></script>
+</body>
+</html>
