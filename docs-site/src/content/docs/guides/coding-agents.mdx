@@ -1,0 +1,72 @@
+---
+title: Coding agents (MCP)
+description: Let Claude Code, Cursor and other coding agents scan their own changes and check packages before installing them.
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+`hagstone mcp` is a [Model Context Protocol](https://modelcontextprotocol.io) server. It lets a coding agent scan the code it just wrote, look up the details of a finding, and check a package before adding it to your project.
+
+## Set it up
+
+<Tabs>
+	<TabItem label="Claude Code">
+		```sh
+		claude mcp add hagstone -- npx -y hagstone mcp
+		```
+	</TabItem>
+	<TabItem label="Cursor">
+		Add to `.cursor/mcp.json` in the project:
+		```json
+		{
+		  "mcpServers": {
+		    "hagstone": { "command": "npx", "args": ["-y", "hagstone", "mcp"] }
+		  }
+		}
+		```
+	</TabItem>
+	<TabItem label="Other agents">
+		Any MCP client that supports stdio servers works. The command is `npx -y hagstone mcp`, run from the project root, or `npx -y hagstone mcp /path/to/project`.
+	</TabItem>
+</Tabs>
+
+Then ask the agent something like *"scan your changes with hagstone and fix anything high or critical"*, or add a line to your agent instructions (`CLAUDE.md`, `.cursorrules`): *"Before finishing a task, run the hagstone scan tool on your changes. Before adding a dependency, run check_package."*
+
+## Tools
+
+### `scan`
+
+Scans the project and returns a compact list of findings sorted by severity.
+
+| Input | Default | Meaning |
+|---|---|---|
+| `scope` | `changed` | `changed`: files that differ from `HEAD`, plus untracked files. `all`: the whole project. |
+| `paths` | | Scan only these files. |
+| `engines` | all | A subset of engines, as in the CLI. |
+| `offline` | `false` | Send nothing over the network (needs `hagstone offline-db` first). |
+| `limit` | `50` | Maximum findings returned (up to `200`). Totals per severity are always included. |
+
+A `changed` scan runs the code and secret checks on the changed files. If a manifest or lockfile changed, it also runs the dependency and supply-chain checks.
+
+### `explain`
+
+Takes an `id` from the last `scan` and returns the full finding: the message, CWE and OWASP mapping with links, the dataflow path, reachability evidence and the versions that fix it.
+
+### `check_package`
+
+Takes `ecosystem` (`npm` or `PyPI`), `name` and optionally `version`, and returns a verdict:
+
+| Verdict | When |
+|---|---|
+| `block` | The package doesn't exist, or it's a likely typosquat of a popular package. |
+| `caution` | The package, or that version, was published very recently. |
+| `ok` | None of the above. |
+| `unverified` | The registry couldn't be reached, so nothing was checked. |
+
+This catches a common agent failure: installing a package name that sounds right but doesn't exist, or that an attacker registered to look like a real one.
+
+## What the agent sees
+
+<Aside type="note">
+Only finding data goes to the model: rule, title, severity, file and line, message. Hagstone never puts code snippets or secret values in tool results (the agent can read your files itself, under its own permissions). The server is confined to the folder it was started in and rejects paths outside it.
+</Aside>

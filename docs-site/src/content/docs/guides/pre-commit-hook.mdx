@@ -1,0 +1,84 @@
+---
+title: Pre-commit hook
+description: Block secrets and high-severity code issues before they're committed, in about the time a commit takes.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+The hook scans **what you're about to commit** and blocks the commit if it adds a secret or a serious code issue. It only looks at lines you added, so issues that were already in a file don't block unrelated work.
+
+## Install
+
+<Steps>
+
+1. Make sure the engines are installed (the hook never downloads during a commit):
+
+   ```sh
+   hagstone engines install
+   ```
+
+2. From inside the repository:
+
+   ```sh
+   hagstone hook install
+   ```
+
+   This writes `.git/hooks/pre-commit` (it respects `core.hooksPath` and worktrees).
+
+3. Commit as usual. A blocked commit looks like:
+
+   ```text
+   CRITICAL AWS access key
+            config/deploy.env:4  gitleaks/aws-access-token
+            │ AWS_ACCESS_KEY_ID=AKIA************
+
+   Commit blocked by hagstone. Fix the findings, or bypass once with `git commit --no-verify`.
+   ```
+
+</Steps>
+
+If a `pre-commit` hook already exists, `install` refuses and says so. `hagstone hook install --force` moves the old hook to `pre-commit.hagstone-backup`, and `hagstone hook uninstall` puts it back.
+
+## What it checks
+
+| | |
+|---|---|
+| **Scanned** | The staged content (the git index), not your working tree, so `git add -p` works as you'd expect. |
+| **Engines** | Opengrep (code) and Gitleaks (secrets). Dependency checks need the network and belong in CI. |
+| **Reported** | Only findings on lines this commit adds. A count of other findings in the changed files is printed as one line. |
+| **Blocks** | Any secret, at any severity. Any other finding at or above `--fail-on` (default `high`). |
+| **Skips** | Deleted files, binary files, submodules and symlinks, and anything in [`.hagstoneignore`](/docs/guides/ignoring-paths/) as staged. |
+
+Staged files are copied to a private temporary folder for the scan and deleted afterwards.
+
+## Change the threshold
+
+The hook calls `hagstone hook run`. Edit `.git/hooks/pre-commit` to pass a different level, for example `hook run --fail-on critical`, or run it by hand:
+
+```sh
+hagstone hook run --fail-on medium
+```
+
+## Bypass once
+
+```sh
+git commit --no-verify
+```
+
+Use it for an emergency, not as a habit: CI still scans the pull request.
+
+## Fail closed
+
+If an engine is missing or fails, the hook **blocks** (exit `2`) and tells you to run `hagstone engines install`. A hook that silently passes when it can't scan would give false confidence.
+
+<Aside type="note" title="Using a hook manager?">
+With husky, lefthook or pre-commit, add `npx hagstone hook run` as a pre-commit command instead of running `hook install`.
+</Aside>
+
+## Remove it
+
+```sh
+hagstone hook uninstall
+```
+
+This only removes a hook Hagstone wrote, and restores a backed-up hook if there is one.

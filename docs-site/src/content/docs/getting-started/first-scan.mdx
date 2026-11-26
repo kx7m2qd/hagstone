@@ -1,0 +1,96 @@
+---
+title: Your first scan
+description: Run Hagstone on a project and read every part of the report.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+<Steps>
+
+1. Go to the root of a project and run:
+
+   ```sh
+   npx hagstone scan .
+   ```
+
+   The first run downloads and verifies the engines, which takes a minute. Later scans start immediately.
+
+2. Read the report. Findings are sorted by severity, then by file.
+
+3. Check the exit code. `0` means nothing at or above the gate, `1` means the gate failed, `2` means a usage error or an engine failed.
+
+</Steps>
+
+## Reading a finding
+
+This is real output from a small Flask app:
+
+```text
+CRITICAL SQL injection
+         app.py:20  opengrep/py-sql-injection  CWE-89
+         │ cur.execute(f"SELECT id, title FROM posts WHERE title LIKE '%{term}%'")
+         flow: request.args (L17) → term (L17) → f"SELECT id, title FROM posts WHERE title LIKE '%{term}%'" (L20)
+         Request data is formatted into a SQL string (f-string, `%`, `+` or `.format`). An attacker can rewrite the query to read or modify any data. Pass values as parameters: …
+
+HIGH     flask 2.0.1 has 2 known vulnerabilities
+         requirements.txt:1  osv-scanner/vulnerable-dependency  CWE-539,CWE-524
+         reach: reachable  flask is imported at app.py:8.
+         flask@2.0.1 (PyPI) is affected by 2 advisories: PYSEC-2023-62 (high); PYSEC-2026-2151 (medium). Upgrade to 3.1.3 or later to fix all 2.
+
+9 findings: 4 critical, 2 high, 3 medium
+opengrep 7 in 3511ms · osv-scanner 2 in 1461ms · gitleaks 0 in 425ms · pkgrisk 0 in 28ms · trivy 0 in 257ms · syft 0 in 814ms
+```
+
+Each finding has:
+
+| Part | Example | Meaning |
+|---|---|---|
+| Severity and title | `CRITICAL SQL injection` | How bad it is if it's real, and what it is. |
+| Location | `app.py:20` | File and line, relative to the scanned folder. |
+| Engine and rule | `opengrep/py-sql-injection` | Which check found it. Code rules link to the [rule catalogue](/docs/reference/rules/). |
+| CWE | `CWE-89` | The weakness category, for your security team and compliance reports. |
+| `│` line | the code | The flagged line. Secrets are redacted before they are ever shown. |
+| `flow:` | `request.args (L17) → … (L20)` | For taint rules: where untrusted data enters, and each step to where it does harm. |
+| `reach:` | `reachable  flask is imported at app.py:8` | For vulnerable npm and PyPI packages: whether your code uses the package, with the evidence. See [Dependencies](/docs/guides/dependencies/). |
+| Message | the last line | What is wrong, why it matters, and how to fix it. |
+
+The last two lines are the totals and how long each engine took. Warnings (for example, packages with no license data) follow them.
+
+## The gate: `--fail-on`
+
+By default the scan exits `1` if any finding is **high** or more severe. Change the threshold, or turn the gate off:
+
+```sh
+hagstone scan . --fail-on critical   # only critical findings fail
+hagstone scan . --fail-on medium     # medium, high and critical fail
+hagstone scan . --fail-on none       # report only, always exit 0 (unless an engine fails)
+```
+
+Severities, from most to least severe: `critical`, `high`, `medium`, `low`, `info`.
+
+<Aside type="caution">
+If an engine fails to run, the scan exits `2` even when there are no findings, because an incomplete scan can't be trusted to pass. See [Troubleshooting](/docs/help/troubleshooting/).
+</Aside>
+
+## Other output formats
+
+```sh
+hagstone scan . --format json  --output hagstone.json    # everything, for scripts and dashboards
+hagstone scan . --format sarif --output hagstone.sarif   # for GitHub code scanning and other SARIF tools
+```
+
+With `--output`, the report goes to the file and a one-line summary goes to stderr. [Output formats](/docs/reference/output-formats/) describes each format.
+
+## What you don't see by default
+
+To keep the list short, a default scan leaves some things out and says so:
+
+- **Test and example code:** code and dependency findings in `test/`, `__tests__/`, `examples/`, `*.spec.ts`, `test_*.py` and similar are hidden and counted. `--include-tests` shows them. Secrets and malicious packages are always shown.
+- **Infrastructure hardening advice:** counted, hidden. `--include-hardening` shows it.
+- **Baselined and suppressed findings:** once you have a [baseline](/docs/guides/existing-codebase/), only new findings show. `--no-baseline` shows everything.
+
+## Next steps
+
+- Seeing a lot of existing findings? [Baseline them](/docs/guides/existing-codebase/) and fix new ones as they appear.
+- [Add Hagstone to CI](/docs/getting-started/ci/) so every pull request is checked.
+- [Skip folders](/docs/guides/ignoring-paths/) that aren't yours, such as vendored code.

@@ -1,0 +1,116 @@
+---
+title: GitHub Action
+description: Run Hagstone on every push and pull request with checks, code scanning alerts and PR comments.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The Action runs Hagstone inside your own GitHub runner. Source code never leaves the runner; the SARIF report is uploaded only to your repository's own code scanning.
+
+## Quick setup
+
+```yaml
+# .github/workflows/hagstone.yml
+name: Hagstone
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      checks: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: kx7m2qd/hagstone@v0
+        with:
+          fail-on: high
+```
+
+Results appear in three places:
+
+1. **A check on the pull request**, red or green, with annotations on the lines that have findings.
+2. **Security → Code scanning**, where alerts open and close as findings appear and are fixed. GitHub also comments on the changed lines of a pull request.
+3. **The job summary**, with a table of findings.
+
+## Permissions
+
+| Feature | Permission | Turned off with |
+|---|---|---|
+| Upload to code scanning | `security-events: write` | `upload-sarif: false` |
+| "Hagstone" check run with annotations | `checks: write` | `check-run: false` |
+| Inline PR review comments | `pull-requests: write` | `pr-comments: false` |
+
+<Aside type="note">
+Code scanning on **private** repositories needs GitHub Advanced Security. Without it, set `upload-sarif: false`: the check run, job summary and (with `pull-requests: write`) inline PR comments still work.
+</Aside>
+
+## Inputs
+
+| Input | Default | What it does |
+|---|---|---|
+| `path` | `.` | Directory to scan, relative to the workspace. |
+| `image` | | Scan this container image instead of `path`. See [Containers](/docs/guides/containers/). |
+| `dockerfile` | `<path>/Dockerfile` if present | With `image`: findings point at this Dockerfile's final `FROM` line. |
+| `sarif-category` | `hagstone`, or `hagstone-image:<name>` with `image` | Code scanning category. |
+| `fail-on` | `high` | Fail the check if a finding is at least this severe: `critical`, `high`, `medium`, `low`, `info`, or `none`. |
+| `trust-reachability` | `false` | Let `fail-on` use the lowered severity of dependencies nothing uses, or only tests and dev tooling use. |
+| `reachable-only` | `false` | Leave unreachable dependency findings out of the report entirely. |
+| `include-tests` | `false` | Also report code and dependency findings in test and example code. |
+| `offline` | `false` | Send no package names anywhere: the Action downloads OSV's databases for the project's ecosystems at the start of the job, matches offline, and skips the npm and PyPI lookups. See [Offline](/docs/guides/offline/). |
+| `engines` | all | Comma-separated subset: `opengrep,osv-scanner,gitleaks,pkgrisk,trivy,syft`. |
+| `upload-sarif` | `true` | Upload results to GitHub code scanning. |
+| `sarif-file` | `hagstone.sarif` | Where to write the SARIF report (also an output, for later steps). |
+| `check-run` | `true` | Post a "Hagstone" check run with annotations. |
+| `pr-comments` | `auto` | Comment on the added lines that have findings. `auto` comments only when `upload-sarif` is off, because code scanning already comments on those lines. |
+| `comment-min-severity` | `medium` | Weakest severity that gets a PR comment. Weaker findings appear in the check run only. |
+| `github-token` | `${{ github.token }}` | Token for the check run and PR comments. |
+
+## Outputs
+
+| Output | Meaning |
+|---|---|
+| `exit-code` | `0` clean, `1` findings at or above `fail-on`, `2` engine or usage error. |
+| `sarif-file` | Path of the SARIF report. |
+
+## Pull requests can't hide their own findings
+
+On pull requests the Action reads the **base branch's** copies of `.hagstoneignore`, `.hagstone/baseline.json` and `.hagstone/licenses.json`. A pull request that edits one of them gets a warning, and the change applies after it's merged. This stops a pull request from un-scanning or baselining the code it adds.
+
+To adopt Hagstone on a repository with existing findings, [create a baseline](/docs/guides/existing-codebase/) and merge it in its own pull request first.
+
+Baselined findings are left out of the SARIF upload, so their code scanning alerts close; the job summary shows the counts. Stale baseline entries (findings that were fixed) show as a warning annotation and never fail the job.
+
+## Pin the version
+
+`@v0` follows the latest 0.x release. For a fixed, auditable version, pin a full commit SHA:
+
+```yaml
+- uses: kx7m2qd/hagstone@<full commit sha> # v0.6.0
+```
+
+Avoid `@main`: it changes with every push.
+
+## Scan a container image too
+
+Run the Action a second time with `image` after your build step:
+
+```yaml
+- run: docker build -t my-app:${{ github.sha }} .
+- uses: kx7m2qd/hagstone@v0
+  with:
+    image: docker:my-app:${{ github.sha }}
+```
+
+Image results upload under their own category (`hagstone-image:my-app`), so they never replace the repository scan's alerts. See [Containers](/docs/guides/containers/).
+
+## Notes
+
+- Runs on **Linux x64** runners (`ubuntu-latest`).
+- Engine binaries are cached between runs and re-checked against their pinned SHA-256 on every run.
+- Findings whose path isn't a file in the checkout (packages inside an image, for example) are listed in the check run summary, because annotations and review comments can only point at repository files.
+- Inline `trivy:ignore` comments in the repository are not honoured. Use [`hagstone suppress`](/docs/guides/suppressing-findings/), so decisions are reviewed in one file.

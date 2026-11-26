@@ -1,0 +1,90 @@
+---
+title: Add it to CI
+description: Check every pull request with Hagstone, on GitHub Actions or any other CI system.
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Hagstone runs inside your CI runner. Source code never leaves it; only the report is uploaded, and only where you send it.
+
+## GitHub Actions
+
+Add `.github/workflows/hagstone.yml`:
+
+```yaml
+name: Hagstone
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write   # upload to code scanning
+      checks: write            # the "Hagstone" check run with annotations
+      pull-requests: write     # inline PR comments (only used when code scanning upload is off)
+    steps:
+      - uses: actions/checkout@v7
+      - uses: kx7m2qd/hagstone@v0
+        with:
+          fail-on: high
+```
+
+That gives you a pass/fail check on every pull request, alerts in **Security → Code scanning**, annotations on the changed lines, and a findings table in the job summary. The [GitHub Action guide](/docs/guides/github-action/) covers every input.
+
+## Other CI systems
+
+Any CI that can run Node.js 22 can run Hagstone. The exit code is the gate: `0` passes, `1` means findings at or above `--fail-on`, `2` means the scan itself failed.
+
+<Tabs>
+	<TabItem label="GitLab CI">
+		```yaml
+		hagstone:
+		  image: node:22
+		  cache:
+		    key: hagstone-engines
+		    paths: [.cache/hagstone]
+		  variables:
+		    HAGSTONE_HOME: $CI_PROJECT_DIR/.cache/hagstone
+		  script:
+		    - npx -y hagstone scan . --format sarif --output hagstone.sarif
+		  artifacts:
+		    when: always
+		    paths: [hagstone.sarif]
+		```
+	</TabItem>
+	<TabItem label="Any shell">
+		```sh
+		export HAGSTONE_HOME="$PWD/.cache/hagstone"   # cache this folder between runs
+		npx -y hagstone engines install
+		npx -y hagstone scan . --fail-on high
+		```
+	</TabItem>
+</Tabs>
+
+Cache the engine folder (`HAGSTONE_HOME`) between runs so the engines aren't downloaded every time. Hagstone re-checks their SHA-256 on every run, so a cached binary that was tampered with is refused.
+
+## Don't let a pull request hide its own findings
+
+Three files in the repository change what Hagstone reports: [`.hagstoneignore`](/docs/guides/ignoring-paths/), [`.hagstone/baseline.json`](/docs/guides/existing-codebase/) and [`.hagstone/licenses.json`](/docs/guides/sbom-and-licenses/). In a pull request, the author can edit them. The GitHub Action handles this for you by reading the **base branch's** copies. On other CI systems, do the same:
+
+```sh
+git fetch origin main
+git show origin/main:.hagstoneignore          > /tmp/base.hagstoneignore 2>/dev/null || : > /tmp/base.hagstoneignore
+git show origin/main:.hagstone/baseline.json  > /tmp/base-baseline.json  2>/dev/null || rm -f /tmp/base-baseline.json
+git show origin/main:.hagstone/licenses.json  > /tmp/base-licenses.json  2>/dev/null || rm -f /tmp/base-licenses.json
+
+npx -y hagstone scan . \
+  --ignore-file /tmp/base.hagstoneignore \
+  --baseline /tmp/base-baseline.json \
+  --license-policy /tmp/base-licenses.json
+```
+
+A `--baseline` or `--license-policy` file that doesn't exist is treated as none, so a base branch without those files works too.
+
+<Aside type="tip">
+Changes to these files then take effect after the pull request is merged, after review. To adopt Hagstone on a repository with existing findings, merge the baseline in its own pull request first.
+</Aside>

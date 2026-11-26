@@ -1,0 +1,84 @@
+---
+title: Offline and restricted networks
+description: Run Hagstone with no network access, behind a firewall, or through a proxy.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+## What needs the network
+
+| When | Host | What's sent | With `--offline` |
+|---|---|---|---|
+| First run, or a new Hagstone version | `github.com`, `objects.githubusercontent.com` | Nothing about your project: engine downloads. | Engines must already be installed. |
+| Dependency vulnerabilities (`osv-scanner`) | `api.osv.dev` | Package names and versions. | Matched against a local database instead. Nothing sent. |
+| Supply-chain checks (`pkgrisk`) | `registry.npmjs.org`, `pypi.org` | Package names and versions. | Registry lookups skipped. |
+| License check (`syft`) | `pypi.org` | Python package names. | Skipped. |
+| `hagstone offline-db` | `osv-vulnerabilities.storage.googleapis.com` | Nothing about your packages: one database archive per ecosystem. | Not used during the scan. |
+| Image scans | Anchore's database server, and the image's registry | Database download; the image pull. | Cached database used. The image must be local (`docker:` or `oci-archive:`). |
+
+Code, secret and infrastructure checks never use the network.
+
+## Scan with no network
+
+<Steps>
+
+1. Once, with network access, install the engines and download the vulnerability databases your project needs:
+
+   ```sh
+   hagstone engines install
+   hagstone offline-db .
+   ```
+
+   `offline-db` looks at which ecosystems the project uses (npm, PyPI, Maven, Go…) and downloads OSV's complete database for each one, from tens of MB up to a few hundred (PyPI is about 40 MB; npm is about 220 MB, mostly malicious-package records). It doesn't send your package list: everyone downloads the same archives.
+
+   ```text
+   hagstone: vulnerability databases ready for PyPI, npm in /Users/you/.cache/hagstone/osv-db. `hagstone scan --offline` uses them.
+   ```
+
+2. Scan offline:
+
+   ```sh
+   hagstone scan . --offline
+   ```
+
+   Nothing is sent anywhere. Dependency vulnerabilities, including known-malicious packages, are matched against the local databases, and the results are the same as an online scan made with the same data. Typosquat and install-script checks still run, because they need no network. The checks that need live registry data (packages that don't exist, brand-new packages and versions) are skipped.
+
+3. Update the databases regularly by running `hagstone offline-db .` again. An offline scan warns when a database is more than 7 days old, because new advisories are published every day.
+
+</Steps>
+
+<Aside type="caution" title="A missing database fails the scan">
+If the project uses an ecosystem you haven't downloaded (say, you added a `go.mod`), the offline scan stops with exit code `2`:
+
+```text
+warning: osv-scanner failed: no offline vulnerability database for Go. Run `hagstone offline-db` once with network access, or scan without --offline.
+```
+
+Hagstone won't silently report "no vulnerabilities" for packages it couldn't check.
+</Aside>
+
+## Air-gapped machines
+
+<Steps>
+
+1. On a machine with network access and **the same Hagstone version and platform**, run `hagstone engines install` and `hagstone offline-db <project>`.
+
+2. Copy the cache folder (`~/.cache/hagstone/`, or `$HAGSTONE_HOME`) to the air-gapped machine, at the same path or with `HAGSTONE_HOME` pointing at it. Hagstone checks every engine's SHA-256 again before using it.
+
+3. Scan with `hagstone scan . --offline`. Add `--no-install` to make sure nothing tries to download.
+
+</Steps>
+
+Bring a fresh copy of `osv-db/` across regularly to keep the vulnerability data current.
+
+## Proxies
+
+The engines receive the standard `HTTPS_PROXY`, `HTTP_PROXY` and `NO_PROXY` variables and use them.
+
+Hagstone's own requests (engine downloads and the npm and PyPI lookups) use Node's built-in `fetch`, which only follows those variables when `NODE_USE_ENV_PROXY=1` is also set:
+
+```sh
+export HTTPS_PROXY=http://proxy.internal:3128
+export NODE_USE_ENV_PROXY=1
+hagstone scan .
+```

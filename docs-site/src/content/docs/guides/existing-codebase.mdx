@@ -1,0 +1,92 @@
+---
+title: Adopt it on an existing codebase
+description: Baseline today's findings so the build only fails on new ones, then work the backlog down.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+Turning on a scanner on a large, older codebase usually means hundreds of findings on day one, and a build you can't merge. A **baseline** fixes that: it records every finding that exists today, and from then on Hagstone only reports **new findings, or old ones that got worse**.
+
+## Set it up
+
+<Steps>
+
+1. Create the baseline at the root of the repository:
+
+   ```sh
+   hagstone baseline create
+   ```
+
+   This runs a full scan (including test code) and writes every finding to `.hagstone/baseline.json`.
+
+2. Commit the file, on its own, in its own pull request:
+
+   ```sh
+   git add .hagstone/baseline.json
+   git commit -m "Add Hagstone baseline"
+   ```
+
+   In CI, pull requests use the base branch's baseline, so the baseline has to be merged before it takes effect.
+
+3. Scan as usual. Only new findings are reported and can fail the gate:
+
+   ```sh
+   hagstone scan .
+   ```
+
+   The report ends with a count, such as `214 baselined, 3 suppressed not shown; --no-baseline to show`.
+
+</Steps>
+
+## What is never baselined
+
+- **Secrets.** A leaked key stays visible until it's rotated and removed. If a secret finding is a false positive, [mark it as one](/docs/guides/suppressing-findings/).
+- **Known-malicious packages.** They can't be baselined or suppressed.
+
+`baseline create` tells you how many of each it left out.
+
+## When a baselined finding comes back
+
+A baselined finding is reported again, with the reason, when it gets worse:
+
+- a dependency gets a **new advisory** that wasn't known when the baseline was made;
+- the finding's **severity goes up**;
+- a dependency that was unreachable or dev-only becomes **reachable**;
+- an `accepted-risk` decision **expires**.
+
+These count toward `--fail-on` like any other finding.
+
+## Code that moves keeps its entry
+
+Baseline entries follow the code. An entry matches its finding by a stable fingerprint, and code findings also match by the normalized code itself, so renaming a file, moving a function or reformatting doesn't make old findings look new.
+
+## Keep it tidy
+
+When you fix baselined findings, their entries become **stale**. Hagstone warns about them (and in GitHub Actions adds a warning annotation) but never fails because of them. Clean up with:
+
+```sh
+hagstone baseline prune
+git add .hagstone/baseline.json && git commit -m "Prune Hagstone baseline"
+```
+
+`prune` removes entries for findings that are gone, and re-attaches entries whose code moved.
+
+## Refresh the baseline
+
+```sh
+hagstone baseline create --force
+```
+
+This re-snapshots the current findings, keeps every explicit decision you recorded with `hagstone suppress`, and tells you how many findings were new and got swallowed into the baseline. Use it sparingly: those new findings stop being reported.
+
+<Aside type="caution">
+`baseline create` and `baseline prune` refuse to write if any engine failed, because a partial scan would make findings look new (or fixed) later. Fix the engine problem and run them again.
+</Aside>
+
+## See everything again
+
+```sh
+hagstone scan . --no-baseline
+```
+
+The file format is documented in [Baseline file](/docs/reference/baseline-file/).

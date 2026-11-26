@@ -1,0 +1,84 @@
+---
+title: Installation
+description: Requirements, ways to install Hagstone, and how the scanning engines are downloaded and verified.
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Requirements
+
+- **Node.js 22 or newer.**
+- **Linux x64 or macOS on Apple silicon (arm64).** Hagstone downloads prebuilt, pinned engine binaries for these two platforms.
+- Network access on the first run, to download the engines.
+
+<Aside type="note" title="Other platforms">
+On **Windows**, run Hagstone inside WSL 2 (a Linux x64 environment). On **Linux arm64** or **Intel Macs** there are no pinned engine builds yet: install each engine at the exact version listed in [Engine versions](/docs/reference/engine-versions/) yourself and point Hagstone at it with `HAGSTONE_<ENGINE>_BIN` (for example `HAGSTONE_OPENGREP_BIN=/usr/local/bin/opengrep`). Hagstone can't verify those binaries, so every scan prints a warning saying so.
+</Aside>
+
+## Install
+
+<Tabs>
+	<TabItem label="Run without installing">
+		```sh
+		npx hagstone scan .
+		```
+		Good for trying it out and for one-off scans. `npx` fetches the latest release each time it isn't cached.
+	</TabItem>
+	<TabItem label="Project dev dependency">
+		```sh
+		npm install --save-dev hagstone
+		npx hagstone scan .
+		```
+		Recommended for teams: everyone and CI use the same version, and the [pre-commit hook](/docs/guides/pre-commit-hook/) has a stable path to call.
+	</TabItem>
+	<TabItem label="Global">
+		```sh
+		npm install -g hagstone
+		hagstone scan .
+		```
+	</TabItem>
+</Tabs>
+
+Check it works:
+
+```sh
+hagstone --version
+```
+
+## The engines
+
+Hagstone wraps proven open-source engines (Opengrep, OSV-Scanner, Gitleaks, Trivy, Syft and, for images, Grype). They are not bundled in the npm package. On the first scan Hagstone:
+
+1. downloads each engine from its official GitHub release, at the exact version pinned in Hagstone;
+2. checks the download against the SHA-256 pinned in Hagstone, and refuses to install anything that doesn't match;
+3. caches it, and checks the cached binary's hash again on every run.
+
+The cache lives in `~/.cache/hagstone/engines/` (or `$XDG_CACHE_HOME/hagstone`, or `$HAGSTONE_HOME` if you set it).
+
+To download everything up front, for example to warm a CI cache or before going offline:
+
+```sh
+hagstone engines install
+hagstone engines status   # which engines are installed, and where
+```
+
+To make a scan fail instead of downloading anything, pass `--no-install`.
+
+[Engines and verification](/docs/concepts/engines/) explains the pinning and signature checks in detail.
+
+## Upgrade
+
+```sh
+npm install -g hagstone@latest        # global
+npm install --save-dev hagstone@latest  # project
+```
+
+A new Hagstone release may pin newer engines; they download on the next scan. Old engine versions stay in the cache until you delete them.
+
+## Uninstall
+
+```sh
+npm uninstall -g hagstone
+rm -rf ~/.cache/hagstone      # engines, and the image vulnerability database if you scanned images
+hagstone hook uninstall       # first, if you installed the pre-commit hook
+```

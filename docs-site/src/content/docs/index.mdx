@@ -1,0 +1,60 @@
+---
+title: Hagstone documentation
+description: Install Hagstone, run your first scan, add it to CI, and learn every check, command and rule.
+template: splash
+hero:
+  title: Hagstone docs
+  tagline: Everything you need to scan your code, dependencies, secrets, supply chain, infrastructure and containers, on your own machine.
+  actions:
+    - text: Get started
+      link: /docs/getting-started/introduction/
+      icon: right-arrow
+    - text: Add it to GitHub
+      link: /docs/guides/github-action/
+      variant: minimal
+---
+
+<p class="hs-eyebrow hs-eyebrow-md">00 — Install</p>
+
+## Scan a project in one command
+
+```sh
+npx hagstone scan .
+```
+
+Requires Node.js 22 or newer on Linux x64 or macOS arm64. The first run downloads the pinned scanning engines, checks their SHA-256, and caches them. [Installation](/docs/getting-started/installation/) covers the details.
+
+<section class="hs-index not-content" aria-labelledby="start-here">
+	<p class="hs-eyebrow">01 — Start here</p>
+	<h2 id="start-here" class="hs-section-title">From install to a green build</h2>
+	<ol class="hs-rows">
+		<li><a href="/docs/getting-started/introduction/"><span class="hs-n">01</span><span class="hs-t">Introduction</span><span class="hs-d">What Hagstone checks, and what it never sends anywhere.</span><span class="hs-arrow" aria-hidden="true">→</span></a></li>
+		<li><a href="/docs/getting-started/first-scan/"><span class="hs-n">02</span><span class="hs-t">Your first scan</span><span class="hs-d">Run a scan and read the results line by line.</span><span class="hs-arrow" aria-hidden="true">→</span></a></li>
+		<li><a href="/docs/getting-started/ci/"><span class="hs-n">03</span><span class="hs-t">Add it to CI</span><span class="hs-d">Fail builds on new high-severity findings, on GitHub or any CI.</span><span class="hs-arrow" aria-hidden="true">→</span></a></li>
+		<li><a href="/docs/guides/existing-codebase/"><span class="hs-n">04</span><span class="hs-t">Adopt it on an existing codebase</span><span class="hs-d">Baseline what's there today so you only see new findings.</span><span class="hs-arrow" aria-hidden="true">→</span></a></li>
+	</ol>
+</section>
+
+<section class="hs-index not-content" aria-labelledby="what-it-checks">
+	<p class="hs-eyebrow">02 — What it checks</p>
+	<h2 id="what-it-checks" class="hs-section-title">Six checks, one scan</h2>
+	<div class="hs-checks">
+		<a href="/docs/reference/rules/"><span class="hs-k">Code</span><span class="hs-t">Untrusted input, followed</span><span class="hs-d">Taint-aware rules for JavaScript/TypeScript, Python and Java trace input to where it does harm. 83 rules, each with tests.</span></a>
+		<a href="/docs/guides/dependencies/"><span class="hs-k">Dependencies</span><span class="hs-t">Vulnerabilities that matter</span><span class="hs-d">Known vulnerabilities, ranked by whether your code actually imports the package.</span></a>
+		<a href="/docs/guides/pre-commit-hook/"><span class="hs-k">Secrets</span><span class="hs-t">Keys caught before commit</span><span class="hs-d">Leaked keys and tokens, redacted in every report.</span></a>
+		<a href="/docs/guides/supply-chain/"><span class="hs-k">Supply chain</span><span class="hs-t">Packages that shouldn't be there</span><span class="hs-d">Typosquats, packages that don't exist, brand-new releases and install scripts.</span></a>
+		<a href="/docs/guides/infrastructure-as-code/"><span class="hs-k">Infrastructure</span><span class="hs-t">What your config exposes</span><span class="hs-d">Terraform, Kubernetes, Dockerfile, Helm, CloudFormation, ARM and Ansible.</span></a>
+		<a href="/docs/guides/containers/"><span class="hs-k">Containers</span><span class="hs-t">Images, SBOMs, licenses</span><span class="hs-d">Image scanning, CycloneDX and SPDX SBOMs, and a license policy you control.</span></a>
+	</div>
+</section>
+
+<section class="hs-index not-content" aria-labelledby="look-up">
+	<p class="hs-eyebrow">03 — Reference</p>
+	<h2 id="look-up" class="hs-section-title">Look things up</h2>
+	<ol class="hs-rows">
+		<li><a href="/docs/reference/cli/"><span class="hs-n">A</span><span class="hs-t">CLI reference</span><span class="hs-d">Every command and flag.</span><span class="hs-arrow" aria-hidden="true">→</span></a></li>
+		<li><a href="/docs/reference/rules/"><span class="hs-n">B</span><span class="hs-t">Rule catalogue</span><span class="hs-d">Every code rule, with flagged and safe examples.</span><span class="hs-arrow" aria-hidden="true">→</span></a></li>
+		<li><a href="/docs/reference/configuration/"><span class="hs-n">C</span><span class="hs-t">Configuration</span><span class="hs-d">Files and environment variables Hagstone reads.</span><span class="hs-arrow" aria-hidden="true">→</span></a></li>
+		<li><a href="/docs/help/troubleshooting/"><span class="hs-n">D</span><span class="hs-t">Troubleshooting</span><span class="hs-d">Engine downloads, exit code 2, platform support.</span><span class="hs-arrow" aria-hidden="true">→</span></a></li>
+	</ol>
+</section>
